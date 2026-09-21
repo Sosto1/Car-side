@@ -1,0 +1,68 @@
+@startuml
+skinparam maxmessagesize 150
+autonumber
+
+actor "Zaměstnanec" as Emp
+participant "Rezervační API" as API
+database "Databáze" as DB
+actor "Správce (Fleet Manager)" as Manager
+
+== Vytvoření a validace rezervace ==
+
+Emp -> API: POST /reservations\n(vehicle_id, start_time, end_time)
+activate API
+
+API -> DB: Dotaz na existující rezervace\n(kontrola překryvu časů)
+activate DB
+DB --> API: Žádný překryv (vozidlo dostupné)
+deactivate DB
+
+== Vyhodnocení byznys pravidel (Hybridní schvalování) ==
+
+alt Běžná rezervace (splňuje podmínky)
+    API -> DB: Ulož rezervaci\n(status = CONFIRMED)
+    activate DB
+    DB --> API: reservation_id
+    deactivate DB
+    API --> Emp: 201 Created\n(reservation_id, stav: CONFIRMED)
+
+else Nestandardní požadavek (např. víc jak 3 dny)
+    API -> DB: Ulož rezervaci\n(status = PENDING)
+    activate DB
+    DB --> API: reservation_id
+    deactivate DB
+    
+    API -> Manager: Odeslat notifikaci:\n"Nová rezervace ke schválení"
+    
+    API --> Emp: 201 Created\n(reservation_id, stav: PENDING)
+end
+deactivate API
+
+== Manuální zásah manažera (pouze pro PENDING) ==
+
+Manager -> API: PUT /reservations/{id}/status\n(akce: CONFIRM nebo REJECT)
+activate API
+
+API -> DB: Aktualizace stavu rezervace
+activate DB
+DB --> API: OK
+deactivate DB
+
+API --> Manager: 200 OK (Stav upraven)
+API -> Emp: Odeslat notifikaci / e-mail\n("Vaše rezervace byla schválena / zamítnuta")
+deactivate API
+
+== Přímá úprava dat (Administrace) ==
+
+Manager -> API: PUT /reservations/{id} nebo /vehicles/{id}\n
+activate API
+
+API -> DB: Aktualizace existujícího záznamu
+activate DB
+DB --> API: Záznam upraven
+deactivate DB
+
+API --> Manager: 200 OK (Změny uloženy)
+deactivate API
+
+@enduml
