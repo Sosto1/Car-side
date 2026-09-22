@@ -1,0 +1,59 @@
+@startuml
+skinparam style strictuml
+skinparam defaultTextAlignment center
+
+|Zaměstnanec|
+start
+:Zadá parametry rezervace\n(auto, čas od-do);
+
+|Systém|
+:Zkontroluje dostupnost\n(překryv s jinými rezervacemi);
+
+if (Je vozidlo volné?) then (Ano)
+  if (Splňuje pravidla pro automatické schválení?) then (Ano)
+    :Uloží rezervaci\nStav: **CONFIRMED**;
+  else (Ne)
+    :Uloží rezervaci\nStav: **PENDING**;
+    
+    |Správce (Fleet Manager)|
+    :Posoudí nestandardní požadavek;
+    if (Schválit rezervaci?) then (Ano)
+      |Systém|
+      :Schválí rezervaci\nStav: **CONFIRMED**;
+    else (Ne)
+      |Systém|
+      :Zamítne rezervaci\nStav: **REJECTED**;
+      :Odešle oznámení o zamítnutí;
+    endif
+  endif
+else (Ne)
+  |Systém|
+  :Zobrazí chybové hlášení (obsazeno);
+endif
+
+|Systém|
+if (Byla rezervace schválena \n(stav == CONFIRMED)?) then (Ano)
+  :Odešle potvrzení zaměstnanci;
+
+  |Zaměstnanec|
+  :Vyčká na datum odjezdu;
+  :Vyzvedne vozidlo a odemkne jej;
+
+  |Systém|
+  :Aktualizuje rezervaci\nStav: **IN_PROGRESS**;
+
+  |Zaměstnanec|
+  :Provede jízdu;
+  :Vrátí vozidlo na parkoviště;
+  :Vloží do systému konečný stav tachometru;
+
+  |Systém|
+  :Aktualizuje najeté kilometry u vozidla;
+  :Ukončí rezervaci\nStav: **COMPLETED**;
+else (Ne)
+  |Zaměstnanec|
+  :Proces rezervace končí neúspěšně\n(vybere jiné auto nebo termín);
+endif
+
+stop
+@enduml

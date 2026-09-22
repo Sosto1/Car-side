@@ -1,0 +1,39 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Zaměstnanec" as Emp
+actor "Správce vozového parku\n(Fleet Manager)" as Manager
+actor "Administrátor" as Admin
+
+rectangle "Rezervační systém sdílených vozidel (Car-side)" {
+    
+    usecase "Vytvoření rezervace" as UC1
+    usecase "Zrušení / Úprava rezervace" as UC2
+    usecase "Převzetí a vrácení vozidla" as UC3
+    
+    usecase "Schvalování / Zamítání rezervací" as UC5
+    usecase "Správa vozového parku\n(přidání auta, STK, servis)" as UC6
+    
+    usecase "Správa uživatelů a přístupů" as UC7
+    
+    usecase "Kontrola dostupnosti vozidla" as UC_Check
+}
+
+' Propojení Zaměstnance
+Emp --> UC1
+Emp --> UC2
+Emp --> UC3
+
+' Propojení Správce
+Manager --> UC5
+Manager --> UC6
+Manager --> UC2 : (může upravit/zrušit komukoliv)
+
+' Propojení Administrátora
+Admin --> UC7
+
+' Závislosti (include)
+UC1 ..> UC_Check : <<include>>
+
+@enduml
