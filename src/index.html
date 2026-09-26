@@ -18,18 +18,11 @@
       <span class="lane" aria-hidden="true"></span>
       <span class="tag">rezervace firemních vozidel</span>
     </div>
-    <div class="topbar-right">
-      <div class="roleswitch" role="tablist" aria-label="Zobrazení">
-        <button id="btnRoleEmp" class="active" onclick="setRole('employee')">Zaměstnanec</button>
-        <button id="btnRoleMgr" onclick="setRole('manager')">Správce vozového parku</button>
-      </div>
-      <select id="userPick" class="userpick" onchange="setUser(this.value)"></select>
-    </div>
+    <div class="topbar-right" id="topbarAuth"></div>
   </header>
 
   <div class="layout">
-
-    <!-- ===== Sidebar ===== -->
+    <!-- Sidebar -->
     <aside>
       <div class="panel">
         <div class="section-head">
@@ -47,11 +40,17 @@
       </div>
     </aside>
 
-    <!-- ===== Main ===== -->
+    <!-- Main Content Area -->
     <section>
+      <!-- Logged Out View -->
+      <div id="loggedOutView" class="panel hidden">
+        <h2>Vítejte v systému Car-side</h2>
+        <p class="sub" style="margin-top:8px">Pro vytvoření rezervace nebo správu vozového parku se prosím přihlaste svým firemním e-mailem a heslem.</p>
+        <button class="btn confirm" style="margin-top:14px" onclick="openLoginModal()">Přihlásit se do systému</button>
+      </div>
 
-      <!-- ---- Employee view ---- -->
-      <div id="employeeView">
+      <!-- Employee View -->
+      <div id="employeeView" class="hidden">
         <div class="panel">
           <h2>Nová rezervace</h2>
           <p class="sub">Vyberte vozidlo a termín. Rezervace do 3 dnů se schvaluje automaticky, delší termíny posoudí správce vozového parku.</p>
@@ -60,13 +59,24 @@
               <label for="fVehicle">Vozidlo</label>
               <select id="fVehicle" required></select>
             </div>
+
+            <div class="field full">
+              <label>Rychlý výběr termínu</label>
+              <div class="preset-chips">
+                <button type="button" class="chip" onclick="setPreset('tomorrow_1')">Zítra (08:00–17:00)</button>
+                <button type="button" class="chip" onclick="setPreset('tomorrow_2')">Zítra na 2 dny</button>
+                <button type="button" class="chip" onclick="setPreset('tomorrow_3')">Zítra na 3 dny</button>
+                <button type="button" class="chip" onclick="setPreset('weekend')">Tento víkend</button>
+              </div>
+            </div>
+
             <div class="field">
               <label for="fStart">Začátek</label>
-              <input type="datetime-local" id="fStart" required>
+              <input type="text" id="fStart" readonly placeholder="Vyberte datum a čas" onclick="openPicker('fStart')" required>
             </div>
             <div class="field">
               <label for="fEnd">Konec</label>
-              <input type="datetime-local" id="fEnd" required>
+              <input type="text" id="fEnd" readonly placeholder="Vyberte datum a čas" onclick="openPicker('fEnd')" required>
             </div>
             <div class="field full">
               <button class="btn" type="submit">Vytvořit rezervaci</button>
@@ -84,7 +94,7 @@
         </div>
       </div>
 
-      <!-- ---- Manager view ---- -->
+      <!-- Manager View -->
       <div id="managerView" class="hidden">
         <div class="panel">
           <div class="section-head">
@@ -112,17 +122,34 @@
           <div id="adminRes" class="hidden">
             <p class="sub" style="margin:0 0 10px">Přímá úprava dat — změna termínu nebo stavu bez schvalovacího procesu.</p>
             <table class="atable">
-              <thead><tr><th>Vozidlo</th><th>Zaměstnanec</th><th>Začátek</th><th>Konec</th><th>Stav</th><th></th></tr></thead>
+              <thead><tr><th>Vozidlo</th><th>Zaměstnanec</th><th>Začátek</th><th>Konec</th><th>Stav</th></tr></thead>
               <tbody id="resTable"></tbody>
             </table>
           </div>
         </div>
       </div>
 
+      <!-- Admin View -->
+      <div id="adminView" class="hidden">
+        <div class="panel">
+          <div class="section-head">
+            <h2>Správa uživatelů a rolí</h2>
+            <span class="count-pill" id="userCount">0</span>
+          </div>
+          <p class="sub">Vytváření nových účtů, přizazování rolí a správa přístupů zaměstnanců do systému.</p>
+          <table class="atable" style="margin-top:14px">
+            <thead><tr><th>Jméno</th><th>E-mail</th><th>Role</th><th>Akce</th></tr></thead>
+            <tbody id="usersTable"></tbody>
+          </table>
+          <div class="toolbar" style="margin-top:14px">
+            <button class="btn confirm small" onclick="openAddUserModal()">+ Nový uživatel</button>
+          </div>
+        </div>
+      </div>
     </section>
   </div>
 
-  <!-- ===== API log ===== -->
+  <!-- API Log Panel -->
   <div class="logwrap" id="logWrap">
     <div class="loghead" onclick="toggleLog()">
       <div>
@@ -135,12 +162,131 @@
   </div>
 
   <div class="toolbar" style="justify-content:center; margin-top:14px">
-    <button class="btn ghost small" onclick="resetDemo()">Obnovit výchozí data</button>
+    <button class="btn ghost small" onclick="resetDemo()">Obnovit výchozí databázi</button>
   </div>
-  <p class="footnote">Prototyp UI nad projektem Car‑side · logika běží v prohlížeči (JS), bez připojení k databázi.</p>
+  <p class="footnote">Prototyp UI nad projektem Car‑side · simulovaná databáze v prohlížeči (LocalStorage).</p>
 
 </div>
 
+<!-- MODAL: Přihlášení -->
+<div id="loginModal" class="cdp-backdrop hidden" onclick="if(event.target===this) closeLoginModal()">
+  <div class="cdp-card auth-card">
+    <div class="cdp-head">
+      <span class="cdp-title">Přihlášení do systému</span>
+      <button type="button" class="cdp-nav" onclick="closeLoginModal()">&times;</button>
+    </div>
+    <form onsubmit="return handleLogin(event)" style="display:flex; flex-direction:column; gap:12px">
+      <div class="field">
+        <label for="lEmail">E-mail</label>
+        <input type="email" id="lEmail" placeholder="vás.email@carside.cz" required>
+      </div>
+      <div class="field">
+        <label for="lPassword">Heslo</label>
+        <input type="password" id="lPassword" placeholder="••••••••" required>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <button type="button" class="btn-link" onclick="openResetModal()">Zapomenuté heslo?</button>
+      </div>
+      <div id="loginMsg" class="formmsg"></div>
+      <button type="submit" class="btn confirm" style="margin-top:6px">Přihlásit se</button>
+    </form>
+    <div class="demo-auth-box">
+      <span class="demo-auth-title">Rychlé přihlášení (Demo profily):</span>
+      <div class="preset-chips">
+        <button type="button" class="chip" onclick="quickLogin('jana.novakova@carside.cz')">Zaměstnanec</button>
+        <button type="button" class="chip" onclick="quickLogin('martin.kucera@carside.cz')">Správce flotily</button>
+        <button type="button" class="chip" onclick="quickLogin('admin@carside.cz')">Administrátor</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Reset Hesla -->
+<div id="resetModal" class="cdp-backdrop hidden" onclick="if(event.target===this) closeResetModal()">
+  <div class="cdp-card auth-card">
+    <div class="cdp-head">
+      <span class="cdp-title">Obnovení hesla</span>
+      <button type="button" class="cdp-nav" onclick="closeResetModal()">&times;</button>
+    </div>
+    <p class="sub" style="font-size:12.5px; margin:0">Zadejte váš firemní e-mail. Zašleme vám odkaz s instrukcemi pro vytvoření nového hesla.</p>
+    <form onsubmit="return handleResetPassword(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:10px">
+      <div class="field">
+        <label for="rEmail">E-mail</label>
+        <input type="email" id="rEmail" placeholder="vás.email@carside.cz" required>
+      </div>
+      <div id="resetMsg" class="formmsg"></div>
+      <div class="cdp-actions">
+        <button type="button" class="btn line small" onclick="closeResetModal()">Zrušit</button>
+        <button type="submit" class="btn confirm small">Odeslat instrukce</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: Nový Uživatel -->
+<div id="addUserModal" class="cdp-backdrop hidden" onclick="if(event.target===this) closeAddUserModal()">
+  <div class="cdp-card auth-card">
+    <div class="cdp-head">
+      <span class="cdp-title">Přidat zaměstnance</span>
+      <button type="button" class="cdp-nav" onclick="closeAddUserModal()">&times;</button>
+    </div>
+    <form onsubmit="return handleAddUser(event)" style="display:flex; flex-direction:column; gap:12px">
+      <div class="field">
+        <label for="nuName">Jméno a příjmení</label>
+        <input type="text" id="nuName" required placeholder="Jan Novák">
+      </div>
+      <div class="field">
+        <label for="nuEmail">E-mail</label>
+        <input type="email" id="nuEmail" required placeholder="jan.novak@carside.cz">
+      </div>
+      <div class="field">
+        <label for="nuRole">Role v systému</label>
+        <select id="nuRole">
+          <option value="employee">Zaměstnanec</option>
+          <option value="manager">Správce vozového parku</option>
+          <option value="admin">Administrátor</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="nuPassword">Heslo</label>
+        <input type="password" id="nuPassword" value="heslo" required>
+      </div>
+      <div class="cdp-actions" style="margin-top:8px">
+        <button type="button" class="btn line small" onclick="closeAddUserModal()">Zrušit</button>
+        <button type="submit" class="btn confirm small">Vytvořit účet</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Custom Date-Time Picker Modal -->
+<div id="cdpModal" class="cdp-backdrop hidden" onclick="if(event.target===this) closePicker()">
+  <div class="cdp-card">
+    <div class="cdp-head">
+      <button type="button" class="cdp-nav" onclick="cdpChangeMonth(-1)">&lsaquo;</button>
+      <span id="cdpMonthTitle" class="cdp-title"></span>
+      <button type="button" class="cdp-nav" onclick="cdpChangeMonth(1)">&rsaquo;</button>
+    </div>
+    <div class="cdp-weekdays">
+      <span>Po</span><span>Út</span><span>St</span><span>Čt</span><span>Pá</span><span>So</span><span>Ne</span>
+    </div>
+    <div id="cdpGrid" class="cdp-grid"></div>
+    <div class="cdp-timebox">
+      <span class="cdp-timelabel">Čas (24h):</span>
+      <div class="cdp-timepicker">
+        <select id="cdpHour" onchange="cdpOnTimeChange()"></select>
+        <span class="cdp-colon">:</span>
+        <select id="cdpMin" onchange="cdpOnTimeChange()"></select>
+      </div>
+    </div>
+    <div class="cdp-actions">
+      <button type="button" class="btn line small" onclick="cdpSetToday()">Dnes</button>
+      <button type="button" class="btn confirm small" onclick="cdpConfirm()">Potvrdit</button>
+    </div>
+  </div>
+</div>
+
+<script src="mock-data.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
