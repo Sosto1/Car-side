@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Car‑side — rezervace firemních vozidel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark">Car<span>‑</span>side</span>
+      <span class="lane" aria-hidden="true"></span>
+      <span class="tag">rezervace firemních vozidel</span>
+    </div>
+    <div class="topbar-right">
+      <div class="roleswitch" role="tablist" aria-label="Zobrazení">
+        <button id="btnRoleEmp" class="active" onclick="setRole('employee')">Zaměstnanec</button>
+        <button id="btnRoleMgr" onclick="setRole('manager')">Správce vozového parku</button>
+      </div>
+      <select id="userPick" class="userpick" onchange="setUser(this.value)"></select>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <!-- ===== Sidebar ===== -->
+    <aside>
+      <div class="panel">
+        <div class="section-head">
+          <h2>Vozový park</h2>
+          <span class="count-pill" id="fleetCount">0</span>
+        </div>
+        <div class="fleetlist" id="fleetList"></div>
+      </div>
+
+      <div class="panel">
+        <div class="section-head">
+          <h2>Oznámení</h2>
+        </div>
+        <div class="notiflist" id="notifList"></div>
+      </div>
+    </aside>
+
+    <!-- ===== Main ===== -->
+    <section>
+
+      <!-- ---- Employee view ---- -->
+      <div id="employeeView">
+        <div class="panel">
+          <h2>Nová rezervace</h2>
+          <p class="sub">Vyberte vozidlo a termín. Rezervace do 3 dnů se schvaluje automaticky, delší termíny posoudí správce vozového parku.</p>
+          <form class="formgrid" id="resForm" onsubmit="return submitReservation(event)" style="margin-top:14px">
+            <div class="field full">
+              <label for="fVehicle">Vozidlo</label>
+              <select id="fVehicle" required></select>
+            </div>
+            <div class="field">
+              <label for="fStart">Začátek</label>
+              <input type="datetime-local" id="fStart" required>
+            </div>
+            <div class="field">
+              <label for="fEnd">Konec</label>
+              <input type="datetime-local" id="fEnd" required>
+            </div>
+            <div class="field full">
+              <button class="btn" type="submit">Vytvořit rezervaci</button>
+            </div>
+          </form>
+          <div class="formmsg" id="formMsg"></div>
+        </div>
+
+        <div class="panel">
+          <div class="section-head">
+            <h2>Moje rezervace</h2>
+            <span class="count-pill" id="myResCount">0</span>
+          </div>
+          <div class="rlist" id="myResList"></div>
+        </div>
+      </div>
+
+      <!-- ---- Manager view ---- -->
+      <div id="managerView" class="hidden">
+        <div class="panel">
+          <div class="section-head">
+            <h2>Ke schválení</h2>
+            <span class="count-pill" id="pendingCount">0</span>
+          </div>
+          <p class="sub">Nestandardní požadavky (delší než 3 dny) čekají na manuální rozhodnutí.</p>
+          <div class="rlist" id="pendingList" style="margin-top:8px"></div>
+        </div>
+
+        <div class="panel">
+          <div class="tabs">
+            <button id="tabFleet" class="active" onclick="setAdminTab('fleet')">Vozový park</button>
+            <button id="tabRes" onclick="setAdminTab('res')">Všechny rezervace</button>
+          </div>
+
+          <div id="adminFleet">
+            <table class="atable">
+              <thead><tr><th>Vozidlo</th><th>SPZ</th><th>Typ</th><th>Lokalita</th><th></th></tr></thead>
+              <tbody id="fleetTable"></tbody>
+            </table>
+            <div class="toolbar"><button class="btn line small" onclick="addVehicle()">+ Přidat vozidlo</button></div>
+          </div>
+
+          <div id="adminRes" class="hidden">
+            <p class="sub" style="margin:0 0 10px">Přímá úprava dat — změna termínu nebo stavu bez schvalovacího procesu.</p>
+            <table class="atable">
+              <thead><tr><th>Vozidlo</th><th>Zaměstnanec</th><th>Začátek</th><th>Konec</th><th>Stav</th><th></th></tr></thead>
+              <tbody id="resTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </div>
+
+  <!-- ===== API log ===== -->
+  <div class="logwrap" id="logWrap">
+    <div class="loghead" onclick="toggleLog()">
+      <div>
+        <h2>Log komunikace (Rezervační API ↔ Databáze ↔ Správce)</h2>
+        <div class="sub" id="logSub">0 událostí</div>
+      </div>
+      <span class="chevron">▾</span>
+    </div>
+    <div class="logbody" id="logBody"></div>
+  </div>
+
+  <div class="toolbar" style="justify-content:center; margin-top:14px">
+    <button class="btn ghost small" onclick="resetDemo()">Obnovit výchozí data</button>
+  </div>
+  <p class="footnote">Prototyp UI nad projektem Car‑side · logika běží v prohlížeči (JS), bez připojení k databázi.</p>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
