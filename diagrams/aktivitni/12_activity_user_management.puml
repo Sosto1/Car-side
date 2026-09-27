@@ -1,0 +1,63 @@
+@startuml
+title Aktivitní diagram – Správa uživatelů a přístupů
+
+skinparam ConditionEndStyle hline
+
+|Uživatel|
+start
+:Zvolit úvodní akci;
+
+|Systém|
+if (Zvolená akce?) then (Registrace nového účtu)
+  |Uživatel|
+  :Zadat osobní údaje a odeslat registraci\n;
+  
+  |Systém|
+  :Uložit účet se statusem "Čeká na schválení";
+  
+  |Administrátor|
+  :Zkontrolovat novou žádost o účet\n\n\n\n\n\n\n\n\n;
+  
+  |Systém|
+  if (Rozhodnutí administrátora?) then (Schválit)
+    :Aktivovat účet uživatele;
+  else (Zamítnout)
+    :Smazat žádost o účet;
+  endif
+  :Odeslat výsledek na email uživatele;
+
+else (Přihlášení)
+  |Uživatel|
+  :Zadat přihlašovací údaje;
+  
+  |Systém|
+  :Ověření identity při přihlášení;
+  
+  if (Autentizace úspěšná?) then (ano)
+    |Uživatel|
+    :Vybrat akci po přihlášení;
+    
+    |Systém|
+    if (Zvolená akce?) then (Změnit heslo)
+      |Uživatel|
+      :Zadat požadavek na změnu hesla;
+      
+      |Systém|
+      :Zpracovat a uložit nové heslo;
+      :Odeslat potvrzení o změně na email;
+    else (Pokračovat do systému)
+      |Systém|
+      :Úspěšně přihlásit uživatele;
+    endif
+    
+  else (ne)
+    |Systém|
+    :Zobrazit chybové hlášení (Neplatné údaje);
+  endif
+endif
+
+|Systém|
+:Zobrazit finální potvrzení / výsledek akce;
+stop
+
+@enduml

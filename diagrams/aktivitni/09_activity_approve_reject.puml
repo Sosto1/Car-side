@@ -1,0 +1,23 @@
+@startuml
+title Aktivitní diagram – Schvalování / Zamítání rezervací
+
+|Manažer|
+start
+:Zobrazit seznam čekajících rezervací (PENDING);
+:Vybrat rezervaci k posouzení;
+
+|Systém|
+if (Rozhodnutí?) then (Schválit)
+  :Nastavit stav rezervace na CONFIRMED;
+  :Odeslat emailové oznámení\n(rezervace schválena);
+else (Zamítnout)
+  :Nastavit stav rezervace na REJECTED;
+  :Uvolnit vozidlo pro daný termín;
+  :Odeslat emailové oznámení\n(rezervace zamítnuta);
+endif
+
+|Zaměstnanec|
+:Obdržet oznámení o rozhodnutí;
+stop
+
+@enduml

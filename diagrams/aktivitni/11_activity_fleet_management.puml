@@ -1,0 +1,45 @@
+@startuml
+title Aktivitní diagram – Správa vozového parku
+
+skinparam ConditionEndStyle hline
+
+|Manažer / Operátor|
+start
+:Zvolit operaci správy vozového parku;
+
+|Systém|
+if (Zvolená operace?\n) then (Přidat vozidlo\n\n\n)
+  |Manažer / Operátor|
+  :Zadat údaje o novém vozidle\n(VIN, SPZ, model);
+  |Systém|
+  :Uložit vozidlo do evidence;
+  :Nastavit počáteční stav na "Dostupné";
+
+elseif (Zvolená operace?\n\n) then (Upravit údaje\n\n\n)
+  |Manažer / Operátor|
+  :Vybrat existující vozidlo;
+  :Změnit požadované informace;
+  |Systém|
+  :Aktualizovat záznam v databázi;
+
+elseif (Zvolená operace?\n\n\n) then (Naplánovat STK / servis\n\n\n)
+  |Manažer / Operátor|
+  :Vybrat vozidlo;
+  :Zadat termín a typ údržby;
+  |Systém|
+  :Zaznamenat plánovaný termín;
+  :Zablokovat rezervace pro daný termín;
+
+elseif (Zvolená operace?\n\n\n\n) then (Vyřadit vozidlo\n\n\n)
+  |Manažer / Operátor|
+  :Vybrat vozidlo k vyřazení;
+  |Systém|
+  :Nastavit stav vozidla na "Vyřazeno";
+  :Zrušit případné rezervace a\nzablokovat možnost nových;
+endif
+
+|Systém|
+:Zobrazit potvrzení o úspěšném provedení;
+stop
+
+@enduml

@@ -1,0 +1,33 @@
+@startuml
+title Aktivitní diagram – Převzetí a vrácení vozidla
+
+|Zaměstnanec|
+start
+:Dostavit se k vozidlu v čase rezervace;
+:Převzít klíče;
+
+|Systém|
+:Automaticky načíst počáteční\nstav tachometru z vozidla;
+:Nastavit stav rezervace na IN_PROGRESS;
+:Nastavit stav vozidla na "V provozu";
+
+|Zaměstnanec|
+:Užívat vozidlo po dobu rezervace;
+:Vrátit vozidlo;
+
+|Systém|
+:Automaticky načíst konečný\nstav tachometru z vozidla;
+
+if (Zjištěno poškození nebo porucha?) then (ano)
+  |Zaměstnanec|
+  :Nahlásit poruchu vozidla;
+  |Systém|
+  :Nastavit stav vozidla na\n"Mimo provoz / vyžaduje servis";
+else (ne)
+  :Nastavit stav vozidla na "Dostupné";
+endif
+
+:Nastavit stav rezervace na COMPLETED;
+stop
+
+@enduml

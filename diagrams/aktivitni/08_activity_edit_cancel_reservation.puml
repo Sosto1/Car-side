@@ -1,0 +1,32 @@
+@startuml
+title Aktivitní diagram – Zrušení / Úprava rezervace
+
+|Zaměstnanec / Manažer|
+start
+:Vybrat existující rezervaci;
+
+|Systém|
+if (Zvolená akce?) then (Upravit)
+  |Zaměstnanec / Manažer|
+  :Zadat nový termín / vozidlo;
+
+  |Systém|
+  :Zkontrolovat dostupnost vozidla\nv novém termínu;
+
+  if (Vozidlo dostupné?) then (ano)
+    :Aktualizovat údaje rezervace;
+    :Odeslat emailové oznámení\no změně rezervace;
+  else (ne)
+    :Zobrazit chybové hlášení\n(termín obsazen);
+  endif
+
+else (Zrušit)
+  |Systém|
+  :Nastavit stav rezervace na CANCELLED;
+  :Uvolnit vozidlo pro daný termín;
+  :Odeslat emailové oznámení\no zrušení rezervace;
+endif
+
+stop
+
+@enduml

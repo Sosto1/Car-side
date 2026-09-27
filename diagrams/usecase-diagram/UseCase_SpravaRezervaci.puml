@@ -1,0 +1,48 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Zaměstnanec" as Emp
+actor "Správce vozového parku\n(Fleet Manager)" as Manager
+actor "Emailová notifikační\nslužba" as Mail
+
+rectangle "Správa rezervací (Car-side)" {
+
+    usecase "Vytvoření rezervace" as UC1
+    usecase "Zrušení / Úprava rezervace" as UC2
+    usecase "Převzetí vozidla" as UC3
+    usecase "Vrácení vozidla" as UC4
+
+    usecase "Schvalování / Zamítání rezervací" as UC5
+
+    usecase "Kontrola dostupnosti vozidla" as UC_Check
+    usecase "Ověření způsobilosti uživatele\n(1 rok bez nehody)" as UC_Eligible
+    usecase "Odeslání emailového oznámení\no změně stavu" as UC_Notify
+}
+
+' Propojení Zaměstnance
+Emp --> UC1
+Emp --> UC2
+Emp --> UC3
+Emp --> UC4
+
+' Propojení Správce
+Manager --> UC5
+Manager --> UC2 : (může upravit/zrušit komukoliv)
+
+' Závislosti (include)
+UC1 ..> UC_Check : <<include>>
+UC1 ..> UC_Eligible : <<include>>
+UC2 ..> UC_Check : <<include>>
+
+' Závislosti (extend)
+UC1 ..> UC_Notify : <<extend>>
+UC5 ..> UC_Notify : <<extend>>
+
+UC_Notify --> Mail
+
+note bottom of UC1
+  Stav rezervace při vytvoření: DRAFT → PENDING
+end note
+
+@enduml
