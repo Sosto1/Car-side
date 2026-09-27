@@ -12,13 +12,13 @@ if (Zvolená operace?\n) then (Přidat vozidlo\n\n\n)
   |Manažer / Operátor|
   :Zadat údaje o novém vozidle\n(VIN, SPZ, model);
   |Systém|
-  :Uložit vozidlo do evidence;
+  :Uložit vozidlo do evidence\n;
   :Nastavit počáteční stav na "Dostupné";
 
 elseif (Zvolená operace?\n\n) then (Upravit údaje\n\n\n)
   |Manažer / Operátor|
   :Vybrat existující vozidlo;
-  :Změnit požadované informace;
+  :Změnit požadované informace\n\n;
   |Systém|
   :Aktualizovat záznam v databázi;
 
