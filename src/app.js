@@ -552,26 +552,6 @@ function renderTopBarAuth() {
     : `<div class="user-badge"><span class="user-info"><b>${currentUser.name}</b> (${roleLabel(currentUser.role)})</span><button class="btn line small" onclick="logout()">Odhlásit se</button></div>`;
 }
 
-function renderVehicleTimetableHtml(vehicleId) {
-  const now = new Date();
-  const futureReservations = db.reservations
-    .filter(r => r.vehicleId === vehicleId && r.status !== "REJECTED" && parseIsoLocal(r.end) > now)
-    .sort((a, b) => parseIsoLocal(a.start) - parseIsoLocal(b.start))
-    .slice(0, 3);
-
-  if (!futureReservations.length) {
-    return `<div class="timetable-wrap"><div class="timetable-title">Harmonogram</div><div style="font-size: 0.8rem; color: #94a3b8;">Žádné nadcházející rezervace.</div></div>`;
-  }
-
-  const itemsHtml = futureReservations.map(r => {
-    const s = parseIsoLocal(r.start), e = parseIsoLocal(r.end);
-    const isActive = s <= now && now < e;
-    return `<div class="timetable-item ${isActive ? 'active' : ''}"><span>📅 ${formatCsShortTime(s)} — ${formatCsShortTime(e)}</span><span style="font-size: 0.75rem; opacity: 0.8;">${r.employeeName}</span></div>`;
-  }).join("");
-
-  return `<div class="timetable-wrap"><div class="timetable-title">Harmonogram obsazenosti</div><div class="timetable-list">${itemsHtml}</div></div>`;
-}
-
 function renderFleetSidebar() {
   const el = document.getElementById("fleetList");
   if (!el) return;
@@ -598,16 +578,15 @@ function renderFleetSidebar() {
   const nowMs = Date.now();
   el.innerHTML = statusList.slice(0, 5).map(item => {
     const v = item.vehicle;
-    const timetableHtml = renderVehicleTimetableHtml(v.id);
 
     if (item.state === "BUSY") {
       const endMs = parseIsoLocal(item.activeRes.end).getTime();
-      return `<div class="fleetcard"><span class="name">${v.name}</span><span class="meta">${v.type} · ${v.location}</span><span class="plate">${v.plate}</span><span class="badge pending" style="margin-top:6px; align-self:flex-start"><span class="dot"></span>Obsazeno <span class="cd-timer" data-type="busy" data-target="${endMs}">(zbývá ${formatRemainingTime(endMs - nowMs)})</span></span>${timetableHtml}</div>`;
+      return `<div class="fleetcard"><span class="name">${v.name}</span><span class="meta">${v.type} · ${v.location}</span><span class="plate">${v.plate}</span><span class="badge pending" style="margin-top:6px; align-self:flex-start"><span class="dot"></span>Obsazeno <span class="cd-timer" data-type="busy" data-target="${endMs}">(zbývá ${formatRemainingTime(endMs - nowMs)})</span></span></div>`;
     } else if (item.state === "UPCOMING") {
       const startMs = parseIsoLocal(item.upcomingRes.start).getTime();
-      return `<div class="fleetcard"><span class="name">${v.name}</span><span class="meta">${v.type} · ${v.location}</span><span class="plate">${v.plate}</span><span class="badge confirmed" style="margin-top:6px; align-self:flex-start"><span class="dot"></span>Dostupné <span class="cd-timer" data-type="upcoming" data-target="${startMs}">(pouze ${formatRemainingTime(startMs - nowMs)})</span></span>${timetableHtml}</div>`;
+      return `<div class="fleetcard"><span class="name">${v.name}</span><span class="meta">${v.type} · ${v.location}</span><span class="plate">${v.plate}</span><span class="badge confirmed" style="margin-top:6px; align-self:flex-start"><span class="dot"></span>Dostupné <span class="cd-timer" data-type="upcoming" data-target="${startMs}">(pouze ${formatRemainingTime(startMs - nowMs)})</span></span></div>`;
     } else {
-      return `<div class="fleetcard"><span class="name">${v.name}</span><span class="meta">${v.type} · ${v.location}</span><span class="plate">${v.plate}</span><span class="badge confirmed" style="margin-top:6px; align-self:flex-start"><span class="dot"></span>Dostupné</span>${timetableHtml}</div>`;
+      return `<div class="fleetcard"><span class="name">${v.name}</span><span class="meta">${v.type} · ${v.location}</span><span class="plate">${v.plate}</span><span class="badge confirmed" style="margin-top:6px; align-self:flex-start"><span class="dot"></span>Dostupné</span></div>`;
     }
   }).join("") || `<div class="empty-note">Žádná vozidla ve flotile.</div>`;
 
