@@ -12,12 +12,15 @@
 <body>
 <div class="app">
 
+  <!-- Topbar -->
   <header class="topbar">
-    <div class="brand">
-      <span class="mark">Car<span>‑</span>side</span>
-      <span class="lane" aria-hidden="true"></span>
-      <span class="tag">rezervace firemních vozidel</span>
-    </div>
+    <a href="#" class="brand-link" onclick="goHome(); return false;" title="Přejít na hlavní stránku">
+      <div class="brand">
+        <span class="mark">Car<span>‑</span>side</span>
+        <span class="lane" aria-hidden="true"></span>
+        <span class="tag">rezervace firemních vozidel</span>
+      </div>
+    </a>
     <div class="topbar-right" id="topbarAuth"></div>
   </header>
 
@@ -51,8 +54,33 @@
 
       <!-- Employee View -->
       <div id="employeeView" class="hidden">
+
+        <!-- Driver Ban Warning Banner -->
+        <div id="driverBanBanner" class="panel alert-panel hidden" style="margin-bottom:18px; border-left: 4px solid var(--red);">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+              <h3 style="color:var(--red); font-size:15px;">🚫 Pozastaveno oprávnění k řízení</h3>
+              <p class="sub" style="margin-top:4px;">Administrátor vám pozastavil oprávnění řídit služební vozidla. Nemůžete vytvářet nové rezervace.</p>
+            </div>
+            <button class="btn reject small" onclick="openAppealModal()">Podat odvolání / Zobrazit stav</button>
+          </div>
+        </div>
+
+        <!-- Timetable Panel -->
+        <div class="panel" style="margin-bottom: 18px;">
+          <div class="section-head">
+            <h2>Harmonogram obsazenosti vozidel (7 dní)</h2>
+            <span class="sub" id="timetableRangeText"></span>
+          </div>
+          <div class="timetable-wrap" id="timetableGrid"></div>
+        </div>
+
+        <!-- New Reservation Panel -->
         <div class="panel">
-          <h2>Nová rezervace</h2>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2>Nová rezervace</h2>
+            <button class="btn line small" onclick="openReportDefectModal()">⚠️ Nahlásit vadu na voze</button>
+          </div>
           <p class="sub">Vyberte vozidlo a termín. Rezervace do 3 dnů se schvaluje automaticky, delší termíny posoudí správce vozového parku.</p>
           <form class="formgrid" id="resForm" onsubmit="return submitReservation(event)" style="margin-top:14px">
             <div class="field full">
@@ -79,7 +107,7 @@
               <input type="text" id="fEnd" readonly placeholder="Vyberte datum a čas" onclick="openPicker('fEnd')" required>
             </div>
             <div class="field full">
-              <button class="btn" type="submit">Vytvořit rezervaci</button>
+              <button class="btn" id="subResBtn" type="submit">Vytvořit rezervaci</button>
             </div>
           </form>
           <div class="formmsg" id="formMsg"></div>
@@ -96,6 +124,16 @@
 
       <!-- Manager View -->
       <div id="managerView" class="hidden">
+        <!-- Urgent Red Alerts Banner -->
+        <div class="panel" style="border-left: 4px solid var(--red);">
+          <div class="section-head">
+            <h2 style="color:var(--red);">🚨 Kritická upozornění (Prošlá STK / Ručení & Otevřené vady)</h2>
+            <span class="count-pill" id="alertCount">0</span>
+          </div>
+          <p class="sub">Vozidla s neplatnou STK/ručením nebo akutní neporořešenou vadou.</p>
+          <div class="rlist" id="alertsList" style="margin-top:10px;"></div>
+        </div>
+
         <div class="panel">
           <div class="section-head">
             <h2>Ke schválení</h2>
@@ -105,26 +143,57 @@
           <div class="rlist" id="pendingList" style="margin-top:8px"></div>
         </div>
 
+        <!-- Timetable Panel for Manager -->
+        <div class="panel" style="margin-bottom: 18px;">
+          <div class="section-head">
+            <h2>Harmonogram obsazenosti vozidel</h2>
+          </div>
+          <div class="timetable-wrap" id="timetableGridManager"></div>
+        </div>
+
         <div class="panel">
           <div class="tabs">
             <button id="tabFleet" class="active" onclick="setAdminTab('fleet')">Vozový park</button>
             <button id="tabRes" onclick="setAdminTab('res')">Všechny rezervace</button>
+            <button id="tabStk" onclick="setAdminTab('stk')">STK / Ručení</button>
+            <button id="tabDefects" onclick="setAdminTab('defects')">Hlášené vady / Chyby</button>
           </div>
 
           <div id="adminFleet">
+            <div class="toolbar" style="margin-bottom:12px;">
+              <button class="btn confirm small" onclick="openVehicleModal()">+ Přidat nové vozidlo</button>
+            </div>
             <table class="atable">
-              <thead><tr><th>Vozidlo</th><th>SPZ</th><th>Typ</th><th>Lokalita</th><th></th></tr></thead>
+              <thead><tr><th>Vozidlo</th><th>SPZ</th><th>STK do</th><th>Ručení do</th><th>Najeto (km)</th><th>Lokalita</th><th>Akce</th></tr></thead>
               <tbody id="fleetTable"></tbody>
             </table>
-            <div class="toolbar"><button class="btn line small" onclick="addVehicle()">+ Přidat vozidlo</button></div>
           </div>
 
           <div id="adminRes" class="hidden">
-            <p class="sub" style="margin:0 0 10px">Přímá úprava dat — změna termínu nebo stavu bez schvalovacího procesu.</p>
+            <p class="sub" style="margin:0 0 10px">Přímá správa rezervačních záznamů v systému.</p>
             <table class="atable">
-              <thead><tr><th>Vozidlo</th><th>Zaměstnanec</th><th>Začátek</th><th>Konec</th><th>Stav</th></tr></thead>
+              <thead><tr><th>Vozidlo</th><th>Zaměstnanec</th><th>Začátek</th><th>Konec</th><th>Stav</th><th>Akce</th></tr></thead>
               <tbody id="resTable"></tbody>
             </table>
+          </div>
+
+          <!-- Tab: STK / Ručení -->
+          <div id="adminStk" class="hidden">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+              <p class="sub" style="margin:0">Seřazeno podle priority vypršení platnosti (nejbližší termíny nahoře).</p>
+              <div class="preset-chips">
+                <button type="button" class="chip active" id="filterStkAll" onclick="setStkFilter('ALL')">Vše</button>
+                <button type="button" class="chip" id="filterStkOnly" onclick="setStkFilter('STK')">Pouze STK</button>
+                <button type="button" class="chip" id="filterGcOnly" onclick="setStkFilter('GC')">Pouze Ručení</button>
+              </div>
+            </div>
+            <div id="stkTabList"></div>
+          </div>
+
+          <!-- Tab: Hlášené vady / Chyby -->
+          <div id="adminDefects" class="hidden">
+            <p class="sub" style="margin:0 0 14px">Přehled a správa všech nahlášených vad zaměstnanci.</p>
+            <div id="defectsTabList"></div>
           </div>
         </div>
       </div>
@@ -133,17 +202,17 @@
       <div id="adminView" class="hidden">
         <div class="panel">
           <div class="section-head">
-            <h2>Správa uživatelů a rolí</h2>
+            <h2>Správa uživatelů a oprávnění</h2>
             <span class="count-pill" id="userCount">0</span>
           </div>
-          <p class="sub">Vytváření nových účtů, přizazování rolí a správa přístupů zaměstnanců do systému.</p>
-          <table class="atable" style="margin-top:14px">
-            <thead><tr><th>Jméno</th><th>E-mail</th><th>Role</th><th>Akce</th></tr></thead>
+          <p class="sub">Správa zaměstnaneckých kódů, kontaktů, rolí a udělování/odebírání oprávnění k řízení vozidel.</p>
+          <div class="toolbar" style="margin-top:10px; margin-bottom:10px;">
+            <button class="btn confirm small" onclick="openUserModal()">+ Nový zaměstnanec</button>
+          </div>
+          <table class="atable">
+            <thead><tr><th>Kód</th><th>Jméno a Příjmení</th><th>E-mail / Telefon</th><th>Role</th><th>Řízení</th><th>Odvolání</th><th>Akce</th></tr></thead>
             <tbody id="usersTable"></tbody>
           </table>
-          <div class="toolbar" style="margin-top:14px">
-            <button class="btn confirm small" onclick="openAddUserModal()">+ Nový uživatel</button>
-          </div>
         </div>
       </div>
     </section>
@@ -178,7 +247,7 @@
     <form onsubmit="return handleLogin(event)" style="display:flex; flex-direction:column; gap:12px">
       <div class="field">
         <label for="lEmail">E-mail</label>
-        <input type="email" id="lEmail" placeholder="vás.email@carside.cz" required>
+        <input type="email" id="lEmail" placeholder="vas.email@carside.cz" required>
       </div>
       <div class="field">
         <label for="lPassword">Heslo</label>
@@ -193,8 +262,9 @@
     <div class="demo-auth-box">
       <span class="demo-auth-title">Rychlé přihlášení (Demo profily):</span>
       <div class="preset-chips">
-        <button type="button" class="chip" onclick="quickLogin('jana.novakova@carside.cz')">Zaměstnanec</button>
-        <button type="button" class="chip" onclick="quickLogin('martin.kucera@carside.cz')">Správce flotily</button>
+        <button type="button" class="chip" onclick="quickLogin('jana.novakova@carside.cz')">Zaměstnanec (Aktivní)</button>
+        <button type="button" class="chip" onclick="quickLogin('petr.dvorak@carside.cz')">Zaměstnanec (Zákaz řízení)</button>
+        <button type="button" class="chip" onclick="quickLogin('martin.kucera@carside.cz')">Správce parku</button>
         <button type="button" class="chip" onclick="quickLogin('admin@carside.cz')">Administrátor</button>
       </div>
     </div>
@@ -212,7 +282,7 @@
     <form onsubmit="return handleResetPassword(event)" style="display:flex; flex-direction:column; gap:12px; margin-top:10px">
       <div class="field">
         <label for="rEmail">E-mail</label>
-        <input type="email" id="rEmail" placeholder="vás.email@carside.cz" required>
+        <input type="email" id="rEmail" placeholder="vas.email@carside.cz" required>
       </div>
       <div id="resetMsg" class="formmsg"></div>
       <div class="cdp-actions">
@@ -223,39 +293,233 @@
   </div>
 </div>
 
-<!-- MODAL: Nový Uživatel -->
-<div id="addUserModal" class="cdp-backdrop hidden" onclick="if(event.target===this) closeAddUserModal()">
-  <div class="cdp-card auth-card">
+<!-- MODAL: Správa Vozidla (Formulář s kalendářem bez času) -->
+<div id="vehicleModal" class="cdp-backdrop hidden" onclick="if(event.target===this) closeVehicleModal()">
+  <div class="cdp-card auth-card" style="width:460px;">
     <div class="cdp-head">
-      <span class="cdp-title">Přidat zaměstnance</span>
-      <button type="button" class="cdp-nav" onclick="closeAddUserModal()">&times;</button>
+      <span class="cdp-title" id="vModalTitle">Přidat / Upravit vozidlo</span>
+      <button type="button" class="cdp-nav" onclick="closeVehicleModal()">&times;</button>
     </div>
-    <form onsubmit="return handleAddUser(event)" style="display:flex; flex-direction:column; gap:12px">
-      <div class="field">
-        <label for="nuName">Jméno a příjmení</label>
-        <input type="text" id="nuName" required placeholder="Jan Novák">
+    <form onsubmit="return saveVehicleForm(event)" style="display:flex; flex-direction:column; gap:10px;">
+      <input type="hidden" id="mvId">
+      <div class="formgrid">
+        <div class="field">
+          <label for="mvName">Název vozidla</label>
+          <input type="text" id="mvName" required placeholder="Škoda Octavia">
+        </div>
+        <div class="field">
+          <label for="mvPlate">SPZ</label>
+          <input type="text" id="mvPlate" required placeholder="1AB 2345">
+        </div>
+        <div class="field">
+          <label for="mvType">Typ karoserie</label>
+          <select id="mvType">
+            <option value="Kombi">Kombi</option>
+            <option value="Sedan">Sedan</option>
+            <option value="Hatchback">Hatchback</option>
+            <option value="SUV">SUV</option>
+            <option value="Dodávka">Dodávka</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="mvLocation">Lokalita</label>
+          <input type="text" id="mvLocation" required placeholder="Ostrava — centrála">
+        </div>
+        <div class="field">
+          <label for="mvStkDate">Platnost STK do</label>
+          <input type="text" id="mvStkDate" readonly placeholder="Vyberte datum STK" onclick="openPicker('mvStkDate', null, true)" required>
+        </div>
+        <div class="field">
+          <label for="mvGreenCardDate">Zelená karta do</label>
+          <input type="text" id="mvGreenCardDate" readonly placeholder="Vyberte datum ručení" onclick="openPicker('mvGreenCardDate', null, true)" required>
+        </div>
+        <div class="field full">
+          <label for="mvMileage">Najeté kilometry (km)</label>
+          <input type="number" id="mvMileage" required min="0">
+        </div>
+        <div class="field full">
+          <label for="mvNotes">Poznámka / Výbava / Drobné vady</label>
+          <textarea id="mvNotes" rows="2" style="border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--paper); font:inherit; font-size:13px;" placeholder="Seznam známých pojízdných vad..."></textarea>
+        </div>
       </div>
-      <div class="field">
-        <label for="nuEmail">E-mail</label>
-        <input type="email" id="nuEmail" required placeholder="jan.novak@carside.cz">
-      </div>
-      <div class="field">
-        <label for="nuRole">Role v systému</label>
-        <select id="nuRole">
-          <option value="employee">Zaměstnanec</option>
-          <option value="manager">Správce vozového parku</option>
-          <option value="admin">Administrátor</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="nuPassword">Heslo</label>
-        <input type="password" id="nuPassword" value="heslo" required>
-      </div>
-      <div class="cdp-actions" style="margin-top:8px">
-        <button type="button" class="btn line small" onclick="closeAddUserModal()">Zrušit</button>
-        <button type="submit" class="btn confirm small">Vytvořit účet</button>
+      <div class="cdp-actions" style="margin-top:10px;">
+        <button type="button" class="btn line small" onclick="closeVehicleModal()">Zrušit</button>
+        <button type="submit" class="btn confirm small">Uložit vozidlo</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- MODAL: Správa Uživatelů (Oddělené Jméno a Příjmení) -->
+<div id="userModal" class="cdp-backdrop hidden" onclick="if(event.target===this) closeUserModal()">
+  <div class="cdp-card auth-card" style="width:440px;">
+    <div class="cdp-head">
+      <span class="cdp-title" id="uModalTitle">Upravit uživatele</span>
+      <button type="button" class="cdp-nav" onclick="closeUserModal()">&times;</button>
+    </div>
+    <form onsubmit="return saveUserForm(event)" style="display:flex; flex-direction:column; gap:10px;">
+      <input type="hidden" id="muId">
+      <div class="formgrid">
+        <div class="field full">
+          <label for="muCode">Kód zaměstnance</label>
+          <input type="text" id="muCode" required placeholder="EMP-100">
+        </div>
+        <div class="field">
+          <label for="muFirstName">Jméno</label>
+          <input type="text" id="muFirstName" required placeholder="Jan">
+        </div>
+        <div class="field">
+          <label for="muLastName">Příjmení</label>
+          <input type="text" id="muLastName" required placeholder="Novák">
+        </div>
+        <div class="field full">
+          <label for="muEmail">E-mail</label>
+          <input type="email" id="muEmail" required placeholder="jan.novak@carside.cz">
+        </div>
+        <div class="field">
+          <label for="muPhone">Telefon</label>
+          <input type="text" id="muPhone" placeholder="+420 777 000 000">
+        </div>
+        <div class="field">
+          <label for="muRole">Role v systému</label>
+          <select id="muRole">
+            <option value="employee">Zaměstnanec</option>
+            <option value="manager">Správce flotily</option>
+            <option value="admin">Administrátor</option>
+          </select>
+        </div>
+        <div class="field full" style="flex-direction:row; align-items:center; gap:10px; margin-top:4px;">
+          <input type="checkbox" id="muCanDrive" style="width:auto; cursor:pointer;">
+          <label for="muCanDrive" style="cursor:pointer; color:var(--ink); font-weight:600;">Oprávněn řídit služební vozidla</label>
+        </div>
+      </div>
+      <div class="cdp-actions" style="margin-top:10px;">
+        <button type="button" class="btn line small" onclick="closeUserModal()">Zrušit</button>
+        <button type="submit" class="btn confirm small">Uložit uživatele</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: Detail Odvolání pro Admina -->
+<div id="appealDetailModal" class="cdp-backdrop hidden" onclick="if(event.target===this) closeAppealDetailModal()">
+  <div class="cdp-card auth-card" style="width:460px;">
+    <div class="cdp-head">
+      <span class="cdp-title">Detail žádosti o odvolání</span>
+      <button type="button" class="cdp-nav" onclick="closeAppealDetailModal()">&times;</button>
+    </div>
+    <div style="font-size:13px; display:flex; flex-direction:column; gap:10px;">
+      <div><b>Žadatel:</b> <span id="adUserName"></span></div>
+      <div><b>Datum podání:</b> <span id="adDate" style="color:var(--muted);"></span></div>
+      <div style="background:var(--paper); padding:10px; border-radius:8px; border-left:3px solid var(--accent);">
+        <b>Zdůvodnění:</b>
+        <p id="adText" style="margin:4px 0 0; white-space:pre-wrap; font-size:12.5px;"></p>
+      </div>
+      <div>
+        <b>Příloha k žádosti:</b><br>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+          <span class="badge confirmed" id="adFile">priloha.pdf</span>
+          <button type="button" class="btn line small" id="adFileBtn">📄 Stáhnout / Zobrazit přílohu</button>
+        </div>
+      </div>
+    </div>
+    <div class="cdp-actions" style="margin-top:14px; justify-content:flex-end; gap:8px;">
+      <button type="button" class="btn line small" onclick="closeAppealDetailModal()">Zavřít</button>
+      <button type="button" class="btn reject small" id="adRejectBtn">Zamítnout odvolání</button>
+      <button type="button" class="btn confirm small" id="adApproveBtn">Schválit & Povolit řízení</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Úprava hlášené vady -->
+<div id="editDefectModal" class="cdp-backdrop hidden" onclick="if(event.target===this) closeEditDefectModal()">
+  <div class="cdp-card auth-card" style="width:400px;">
+    <div class="cdp-head">
+      <span class="cdp-title">Upravit hlášenou vadu</span>
+      <button type="button" class="cdp-nav" onclick="closeEditDefectModal()">&times;</button>
+    </div>
+    <form onsubmit="return saveDefectEdit(event)" style="display:flex; flex-direction:column; gap:12px;">
+      <input type="hidden" id="edVehicleId">
+      <input type="hidden" id="edDefectId">
+      <div class="field">
+        <label for="edText">Popis závady / poruchy</label>
+        <textarea id="edText" rows="3" required style="border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--paper); font:inherit; font-size:13px;"></textarea>
+      </div>
+      <div class="field">
+        <label for="edStatus">Stav řešení</label>
+        <select id="edStatus">
+          <option value="OPEN">⚠️ Otevřená (Vyžaduje řešení)</option>
+          <option value="RESOLVED">✅ Vyřešeno / Opraveno</option>
+        </select>
+      </div>
+      <div class="cdp-actions">
+        <button type="button" class="btn line small" onclick="closeEditDefectModal()">Zrušit</button>
+        <button type="submit" class="btn confirm small">Uložit změny</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: Nahlásit vadu na voze -->
+<div id="reportDefectModal" class="cdp-backdrop hidden" onclick="if(event.target===this) closeReportDefectModal()">
+  <div class="cdp-card auth-card" style="width:400px;">
+    <div class="cdp-head">
+      <span class="cdp-title">Nahlásit vadu na vozidle</span>
+      <button type="button" class="cdp-nav" onclick="closeReportDefectModal()">&times;</button>
+    </div>
+    <form onsubmit="return submitDefectForm(event)" style="display:flex; flex-direction:column; gap:12px;">
+      <div class="field">
+        <label for="rdVehicle">Vyberte vozidlo</label>
+        <select id="rdVehicle" required></select>
+      </div>
+      <div class="field">
+        <label for="rdText">Popis závady / poruchy</label>
+        <textarea id="rdText" rows="3" required style="border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--paper); font:inherit; font-size:13px;" placeholder="Popište přesně problém (např. svítí kontrolka oleje, prasklá žárovka...)"></textarea>
+      </div>
+      <div class="cdp-actions">
+        <button type="button" class="btn line small" onclick="closeReportDefectModal()">Zrušit</button>
+        <button type="submit" class="btn confirm small">Odeslat hlášení</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: Odvolací formulář zákazu řízení -->
+<div id="appealModal" class="cdp-backdrop hidden" onclick="if(event.target===this) closeAppealModal()">
+  <div class="cdp-card auth-card" style="width:420px;">
+    <div class="cdp-head">
+      <span class="cdp-title">Odvolání k zákazu řízení</span>
+      <button type="button" class="cdp-nav" onclick="closeAppealModal()">&times;</button>
+    </div>
+    <div id="appealStatusBox" style="margin-bottom:8px;"></div>
+    <form id="appealForm" onsubmit="return submitAppealForm(event)" style="display:flex; flex-direction:column; gap:12px;">
+      <div class="field">
+        <label for="apText">Zdůvodnění odvolání / žádosti</label>
+        <textarea id="apText" rows="3" required style="border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--paper); font:inherit; font-size:13px;" placeholder="Uveďte důvody pro opětovné schválení řízení..."></textarea>
+      </div>
+      <div class="field">
+        <label for="apFile">Příloha (potvrzení o bezúhonnosti / dokument PDF)</label>
+        <input type="file" id="apFile" style="font-size:12px;">
+      </div>
+      <div class="cdp-actions">
+        <button type="button" class="btn line small" onclick="closeAppealModal()">Zavřít</button>
+        <button type="submit" class="btn confirm small">Odeslat odvolání</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: Detail vozidla -->
+<div id="vehicleDetailModal" class="cdp-backdrop hidden" onclick="if(event.target===this) closeVehicleDetailModal()">
+  <div class="cdp-card auth-card" style="width:440px;">
+    <div class="cdp-head">
+      <span class="cdp-title" id="vdTitle">Detail vozidla</span>
+      <button type="button" class="cdp-nav" onclick="closeVehicleDetailModal()">&times;</button>
+    </div>
+    <div id="vdBody" style="font-size:13px; display:flex; flex-direction:column; gap:10px;"></div>
+    <div class="cdp-actions" style="margin-top:10px;">
+      <button type="button" class="btn line small" onclick="closeVehicleDetailModal()">Zavřít</button>
+    </div>
   </div>
 </div>
 
