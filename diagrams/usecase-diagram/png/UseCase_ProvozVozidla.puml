@@ -1,0 +1,26 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Zaměstnanec" as Emp
+actor "Správce vozového parku\n(Fleet Manager)" as Manager
+
+rectangle "Provoz a stav vozidla (Car-side)" {
+    usecase "Zadání stavu tachometru a paliva" as UC_Fuel
+    usecase "Hlášení závady nebo poškození vozidla" as UC_Incident
+    usecase "Kontrola stavu při převzetí / vrácení" as UC_CheckState
+}
+
+' Propojení Zaměstnance
+Emp --> UC_Fuel
+Emp --> UC_Incident
+Emp --> UC_CheckState
+
+' Propojení Správce
+Manager --> UC_Incident : (řešení škody / servisu)
+
+' Závislosti
+UC_Fuel ..> UC_CheckState : <<include>>
+UC_Incident ..> UC_CheckState : <<include>>
+
+@enduml
