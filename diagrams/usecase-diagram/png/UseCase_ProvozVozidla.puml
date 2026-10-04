@@ -5,22 +5,23 @@ skinparam packageStyle rectangle
 actor "Zaměstnanec" as Emp
 actor "Správce vozového parku\n(Fleet Manager)" as Manager
 
-rectangle "Provoz a stav vozidla (Car-side)" {
+rectangle "Provoz a stav vozidla" {
+    usecase "Kontrola stavu při převzetí / vrácení" as UC_CheckState
     usecase "Zadání stavu tachometru a paliva" as UC_Fuel
     usecase "Hlášení závady nebo poškození vozidla" as UC_Incident
-    usecase "Kontrola stavu při převzetí / vrácení" as UC_CheckState
+    usecase "Řešení škody / servisu" as UC_Resolve
 }
 
-' Propojení Zaměstnance
-Emp --> UC_Fuel
-Emp --> UC_Incident
+' Zaměstnanec
 Emp --> UC_CheckState
+Emp --> UC_Incident
 
-' Propojení Správce
-Manager --> UC_Incident : (řešení škody / servisu)
+' Správce
+Manager --> UC_Resolve
 
 ' Závislosti
-UC_Fuel ..> UC_CheckState : <<include>>
-UC_Incident ..> UC_CheckState : <<include>>
+UC_CheckState ..> UC_Fuel : <<include>>
+UC_Incident ..> UC_CheckState : <<extend>>
+UC_Incident ..> UC_Resolve : <<include>>
 
 @enduml
