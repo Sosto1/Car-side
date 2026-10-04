@@ -1,0 +1,27 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Zaměstnanec" as Emp
+actor "Správce vozového parku\n(Fleet Manager)" as Admin
+actor "Systém" as Sys
+
+rectangle "Správa řidičských oprávnění" {
+    usecase "Nahrání řidičského průkazu" as UC_UploadLicense
+    usecase "Kontrola platnosti\nřidičského oprávnění" as UC_CheckValidity
+    usecase "Schválení nebo zamítnutí\nřidičského oprávnění" as UC_ApproveLicense
+    usecase "Upozornění na blížící se\nkonec platnosti" as UC_ExpiryAlert
+}
+
+' Propojení rolí
+Emp --> UC_UploadLicense
+Admin --> UC_UploadLicense
+Admin --> UC_ApproveLicense
+Sys --> UC_ExpiryAlert
+
+' Závislosti
+UC_UploadLicense ..> UC_CheckValidity : <<include>>
+UC_ApproveLicense ..> UC_CheckValidity : <<include>>
+UC_ExpiryAlert ..> UC_CheckValidity : <<include>>
+
+@enduml
