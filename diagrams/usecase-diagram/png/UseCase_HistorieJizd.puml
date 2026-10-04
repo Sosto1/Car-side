@@ -1,0 +1,25 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Správce vozového parku\n(Fleet Manager)" as Manager
+actor "Administrátor" as Admin
+
+rectangle "Historie a audit" {
+    usecase "Prohlížení historie jízd" as UC_RideHistory
+    usecase "Zobrazení najetých kilometrů" as UC_Km
+    usecase "Prohlížení auditních logů" as UC_AuditLogs
+    usecase "Filtrování dle řidiče,\nvozidla a období" as UC_Filter
+}
+
+' Propojení rolí
+Manager --> UC_RideHistory
+Manager --> UC_AuditLogs
+Admin --> UC_AuditLogs
+
+' Závislosti
+UC_Km ..> UC_RideHistory : <<extend>>
+UC_Filter ..> UC_RideHistory : <<extend>>
+UC_Filter ..> UC_AuditLogs : <<extend>>
+
+@enduml
