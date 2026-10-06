@@ -1,0 +1,18 @@
+@startuml
+skinparam defaultFontName "DejaVu Sans"
+title Rezervační systém sdílených vozidel (Obecný)
+
+actor "Zaměstnanec" as Emp
+participant "Systém" as Sys
+actor "Správce vozového parku" as Manager
+
+Emp -> Sys: Vytvoření rezervace
+activate Sys
+Sys -> Sys: Kontrola dostupnosti vozidla (<<include>>)
+Sys -> Manager: Požadavek na schválení rezervace
+activate Manager
+Manager -> Sys: Schvalování / Zamítání rezervací
+deactivate Manager
+Sys -> Emp: Informace o výsledku schválení
+deactivate Sys
+@enduml

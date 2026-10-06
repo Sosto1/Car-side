@@ -1,0 +1,24 @@
+@startuml
+skinparam defaultFontName "DejaVu Sans"
+title Provoz a stav vozidla
+
+actor "Zaměstnanec" as Emp
+participant "Systém" as Sys
+participant "Připojené vozidlo" as Vehicle
+actor "Správce vozového parku" as Manager
+
+Emp -> Sys: Kontrola stavu při vrácení vozidla
+activate Sys
+Vehicle -> Sys: Automatický přenos stavu tachometru a paliva
+
+opt Zjištěno poškození (<<extend>>)
+    Emp -> Sys: Hlášení závady nebo poškození vozidla
+    Sys -> Manager: Notifikace o nové škodě / závadě
+    activate Manager
+    Manager -> Sys: Řešení škody / servisu (<<include>>)
+    deactivate Manager
+end
+
+Sys -> Emp: Potvrzení o ukončení kontroly
+deactivate Sys
+@enduml

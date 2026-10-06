@@ -1,0 +1,21 @@
+@startuml
+skinparam defaultFontName "DejaVu Sans"
+title Digitální přístup k vozidlu
+
+actor "Zaměstnanec" as Emp
+participant "Systém" as Sys
+actor "Správce vozového parku" as Admin
+
+Emp -> Sys: Hlášení ztráty zařízení / klíče
+activate Sys
+Sys -> Admin: Notifikace o ztrátě / Požadavek na blokaci (<<include>>)
+activate Admin
+Admin -> Sys: Blokace přístupu k vozidlu
+deactivate Admin
+Sys -> Emp: Potvrzení o přijetí hlášení a blokaci
+deactivate Sys
+
+== Pozdější akce ==
+Admin -> Sys: Obnovení přístupu k vozidlu
+Sys -> Emp: Informace o obnovení přístupu
+@enduml

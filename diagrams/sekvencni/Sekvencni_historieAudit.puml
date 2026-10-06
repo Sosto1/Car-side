@@ -1,0 +1,15 @@
+@startuml
+skinparam defaultFontName "DejaVu Sans"
+title Historie a audit
+
+actor "Správce vozového parku" as Manager
+participant "Systém" as Sys
+
+Manager -> Sys: Požadavek na prohlížení historie jízd
+activate Sys
+Manager -> Sys: Zvolení filtrů (řidič, vozidlo, období) (<<extend>>)
+Sys -> Sys: Aplikace filtrů na data
+Sys -> Sys: Zpracování najetých kilometrů (<<extend>>)
+Sys -> Manager: Zobrazení filtrované historie jízd a kilometrů
+deactivate Sys
+@enduml

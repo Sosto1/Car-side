@@ -1,0 +1,29 @@
+@startuml
+skinparam defaultFontName "DejaVu Sans"
+title Správa rezervací
+
+actor "Zaměstnanec" as Emp
+participant "Systém" as Sys
+participant "Notifikační služba" as Mail
+actor "Správce vozového parku" as Manager
+
+Emp -> Sys: Vytvoření rezervace (Stav: DRAFT)
+activate Sys
+Sys -> Sys: Kontrola dostupnosti vozidla (<<include>>)
+Sys -> Sys: Ověření způsobilosti (1 rok bez nehody) (<<include>>)
+Sys -> Sys: Změna stavu (DRAFT -> PENDING)
+
+opt Nastavení emailových notifikací (<<extend>>)
+    Sys -> Mail: Odeslání emailového oznámení o změně stavu
+    Mail -> Manager: Upozornění na novou rezervaci
+end
+
+Manager -> Sys: Schválení rezervace
+Sys -> Sys: Změna stavu na APPROVED
+
+opt Nastavení emailových notifikací (<<extend>>)
+    Sys -> Mail: Odeslání emailového oznámení o schválení
+    Mail -> Emp: Informace o schválení rezervace
+end
+deactivate Sys
+@enduml

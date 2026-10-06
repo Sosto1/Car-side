@@ -1,0 +1,22 @@
+@startuml
+skinparam defaultFontName "DejaVu Sans"
+title Správa řidičských oprávnění
+
+actor "Zaměstnanec" as Emp
+participant "Systém" as Sys
+actor "Správce vozového parku" as Admin
+
+Emp -> Sys: Nahrání řidičského průkazu
+activate Sys
+Sys -> Sys: Kontrola platnosti řidičského oprávnění (<<include>>)
+Sys -> Admin: Upozornění na nový průkaz ke schválení
+activate Admin
+Admin -> Sys: Schválení řidičského oprávnění (<<include>> kontrola)
+deactivate Admin
+Sys -> Emp: Průkaz byl schválen
+deactivate Sys
+
+== Automatická kontrola systému ==
+Sys -> Sys: Detekce blížícího se konce platnosti
+Sys -> Emp: Upozornění na blížící se konec platnosti (<<include>> kontrola)
+@enduml

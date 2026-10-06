@@ -1,0 +1,16 @@
+@startuml
+skinparam defaultFontName "DejaVu Sans"
+title Správa uživatelů a přístupů
+
+actor "Administrátor" as Admin
+participant "Systém" as Sys
+
+Admin -> Sys: Vytvoření uživatelského účtu
+activate Sys
+Sys -> Admin: Požadavek na ověření identity administrátora (<<include>>)
+Admin -> Sys: Ověření identity (přihlášení/token)
+Sys -> Admin: Možnost nastavení účtu
+Admin -> Sys: Přiřazení role (Zaměstnanec / Manažer)
+Sys -> Admin: Potvrzení o vytvoření účtu a přiřazení role
+deactivate Sys
+@enduml
