@@ -66,4 +66,27 @@
 
 ---
 
-## 6. Správa ř
+## 6. Správa řidičských oprávnění
+**Účel:** Evidence a kontrola platnosti řidičských průkazů zaměstnanců.
+**Aktéři:** Zaměstnanec, Systém, Správce vozového parku
+**Hlavní tok:**
+1. **Zaměstnanec** nahraje do systému svůj řidičský průkaz.
+2. **Systém** provede prvotní kontrolu platnosti oprávnění `<<include>>`.
+3. Systém upozorní **Správce vozového parku** na nový průkaz čekající na schválení.
+4. Správce průkaz schválí (proces obsahuje opětovnou kontrolu `<<include>>`).
+5. Systém informuje Zaměstnance o úspěšném schválení.
+6. *(Automatická kontrola)* Systém průběžně detekuje blížící se konec platnosti průkazů.
+7. Při zjištění končící platnosti Systém automaticky upozorní Zaměstnance `<<include>>` (společně s kontrolou).
+
+---
+
+## 7. Správa uživatelů a přístupů
+**Účel:** Proces vytvoření nového uživatelského účtu a přiřazení rolí administrátorem.
+**Aktéři:** Administrátor, Systém
+**Hlavní tok:**
+1. **Administrátor** iniciuje vytvoření nového uživatelského účtu.
+2. **Systém** požádá o ověření identity administrátora `<<include>>`.
+3. Administrátor ověří svou identitu (např. přihlášení nebo token).
+4. Systém zpřístupní možnosti nastavení nového účtu.
+5. Administrátor přiřadí uživateli příslušnou roli (Zaměstnanec / Manažer).
+6. Systém potvrdí úspěšné vytvoření účtu a uložení přidělené role.
