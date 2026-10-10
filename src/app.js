@@ -21,7 +21,7 @@ function loadDb() {
 }
 
 function saveDb() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(db)); } catch (e) {}
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(db)); return true; } catch (e) { return false; }
 }
 
 function loadSession() {
@@ -168,9 +168,14 @@ function setInputValue(id, dateObj, dateOnly = false) {
   }
 }
 
+function parseDateOnly(str) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(str || "");
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(str);
+}
+
 function daysDiffFromNow(dateStr) {
   if (!dateStr) return 999;
-  const target = new Date(dateStr);
+  const target = parseDateOnly(dateStr);
   const now = new Date();
   target.setHours(0,0,0,0);
   now.setHours(0,0,0,0);
@@ -323,6 +328,7 @@ function cdpConfirm() {
   closePicker();
   renderVehicleSelect();
   renderFleetSidebar();
+  renderTimetable();
 }
 
 /* ---------- Presets (Fixing Weekend Past Conflict Bug) ---------- */
@@ -367,11 +373,12 @@ function setPreset(type) {
   setInputValue("fEnd", end);
   renderVehicleSelect();
   renderFleetSidebar();
+  renderTimetable();
 }
 
 function initDateInputs(force = false) {
   if (force || !getInputValue("fStart")) setPreset('tomorrow_1');
-  else { renderVehicleSelect(); renderFleetSidebar(); }
+  else { renderVehicleSelect(); renderFleetSidebar(); renderTimetable(); }
 }
 
 /* ---------- Helpers ---------- */
@@ -396,6 +403,14 @@ function pushNotif(who, text) {
 const statusLabel = s => s === "CONFIRMED" ? "Potvrzeno" : s === "PENDING" ? "Čeká na schválení" : "Zamítnuto";
 const statusClass = s => s === "CONFIRMED" ? "confirmed" : s === "PENDING" ? "pending" : "rejected";
 const roleLabel = r => r === "admin" ? "Administrátor" : r === "manager" ? "Správce flotily" : "Zaměstnanec";
+
+const esc = str => String(str ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const startOfDay = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const startOfWeek = d => addDays(startOfDay(d), -((d.getDay() + 6) % 7));
+const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+const fmtDate = d => d.toLocaleString("cs-CZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
 function setAdminTab(tab) { db.adminTab = tab; saveDb(); renderAll(); }
 function toggleLog() { db.logOpen = !db.logOpen; saveDb(); renderAll(); }
@@ -495,13 +510,16 @@ function submitReservation(ev) {
   return false;
 }
 
-function managerDecision(resId, approve) {
+function managerDecision(resId, approve, isCancel = false) {
   const rec = db.reservations.find(r => r.id === resId);
   if (!rec) return;
+  if (isCancel && !confirm("Opravdu chcete zrušit tuto potvrzenou rezervaci? Zaměstnanec bude informován.")) return;
   const vehicle = vehicleById(rec.vehicleId);
-  pushLog("Správce → API", `PUT /reservations/${resId}/status (akce: ${approve ? "CONFIRM" : "REJECT"})`);
+  const action = approve ? "CONFIRM" : isCancel ? "CANCEL" : "REJECT";
+  pushLog("Správce → API", `PUT /reservations/${resId}/status (akce: ${action})`);
   rec.status = approve ? "CONFIRMED" : "REJECTED";
-  pushNotif(rec.employeeEmail, `Vaše rezervace vozidla ${vehicle ? vehicle.name : ""} byla ${approve ? "schválena" : "zamítnuta"}.`);
+  const verb = approve ? "schválena" : isCancel ? "zrušena správcem" : "zamítnuta";
+  pushNotif(rec.employeeEmail, `Vaše rezervace vozidla ${vehicle ? vehicle.name : ""} (${fmt(rec.start)}) byla ${verb}.`);
   saveDb(); renderAll();
 }
 
@@ -596,7 +614,7 @@ function openVehicleDetailModal(id) {
   let gcBadge = gcDiff < 0 ? `<span class="badge rejected">Prošlé ručení (${formatCsDate(new Date(v.greenCardDate))})</span>` : gcDiff <= 30 ? `<span class="badge pending">Ručení končí za ${gcDiff} dní</span>` : `<span class="badge confirmed">Ručení platné do ${formatCsDate(new Date(v.greenCardDate))}</span>`;
 
   let defectsHtml = (v.defects && v.defects.length)
-    ? v.defects.map(d => `<div style="background:var(--paper); padding:6px 10px; border-radius:6px; font-size:12px; border-left:3px solid ${d.status === 'OPEN' ? 'var(--red)' : 'var(--accent)'}; margin-top:4px;"><b>${d.status === 'OPEN' ? '⚠️ Otevřená vada' : '✅ Vyřešeno'}:</b> ${d.text} <span style="color:var(--muted)">(${fmt(d.date)})</span></div>`).join("")
+    ? v.defects.map(d => `<div style="background:var(--paper); padding:6px 10px; border-radius:6px; font-size:12px; border-left:3px solid ${d.status === 'OPEN' ? 'var(--red)' : 'var(--accent)'}; margin-top:4px;"><b>${d.status === 'OPEN' ? '⚠️ Otevřená vada' : '✅ Vyřešeno'}:</b> ${esc(d.text)} <span style="color:var(--muted)">(${fmt(d.date)})</span></div>`).join("")
     : "<div style='color:var(--muted); margin-top:4px;'>Žádné hlášené vady.</div>";
 
   document.getElementById("vdTitle").textContent = `${v.name} (${v.plate})`;
@@ -604,7 +622,7 @@ function openVehicleDetailModal(id) {
     <div><b>Typ / Lokalita:</b> ${v.type} · ${v.location}</div>
     <div><b>Najeté km:</b> ${v.mileage.toLocaleString()} km</div>
     <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">${stkBadge} ${gcBadge}</div>
-    <div style="margin-top:6px;"><b>Poznámky / Výbava:</b><br><span style="color:var(--muted);">${v.notes || "Bez poznámek."}</span></div>
+    <div style="margin-top:6px;"><b>Poznámky / Výbava:</b><br><span style="color:var(--muted);">${esc(v.notes) || "Bez poznámek."}</span></div>
     <div style="margin-top:6px;"><b>Hlášené vady:</b><br>${defectsHtml}</div>
   `;
 
@@ -786,13 +804,46 @@ function deleteDefect(vehicleId, defectId) {
 }
 
 /* ---------- Appeal Modal Logic & Admin Appeal Review ---------- */
+const APPEAL_MAX_BYTES = 1024 * 1024; // bez databáze se příloha ukládá do LocalStorage prohlížeče → limit 1 MB
+let appealPreviewUrl = null;
+
+const readFileAsDataUrl = file => new Promise((resolve, reject) => {
+  const fr = new FileReader();
+  fr.onload = () => resolve(fr.result);
+  fr.onerror = () => reject(fr.error);
+  fr.readAsDataURL(file);
+});
+
+function dataUrlToBlob(dataUrl, forcedType) {
+  const [head, b64] = dataUrl.split(",");
+  const mime = forcedType || (head.match(/data:([^;]+)/) || [])[1] || "application/octet-stream";
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+function formatBytes(n) {
+  if (!n) return "";
+  return n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(0)} kB` : `${(n / 1048576).toFixed(1)} MB`;
+}
+
+function guessMimeFromName(name) {
+  const ext = (name.split(".").pop() || "").toLowerCase();
+  return ({ pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" })[ext] || "";
+}
+
 function openAppealModal() {
   const box = document.getElementById("appealStatusBox");
+  document.getElementById("appealMsg").className = "formmsg";
+  document.getElementById("apFile").value = "";
 
   if (currentUser && currentUser.appeal) {
-    const stLabel = currentUser.appeal.status === 'APPROVED' ? 'Schváleno (Oprávnění obnoveno)' : currentUser.appeal.status === 'REJECTED' ? 'Zamítnuto' : 'Čeká na vyřízení adminem';
-    box.innerHTML = `<div style="background:var(--accent-soft); color:var(--accent-ink); padding:8px 10px; border-radius:6px; font-size:12px;"><b>Sledování odvolání:</b> Stav: <b>${stLabel}</b> (Odesláno: ${fmt(currentUser.appeal.date)})</div>`;
-    document.getElementById("apText").value = currentUser.appeal.text;
+    const ap = currentUser.appeal;
+    const stLabel = ap.status === 'APPROVED' ? 'Schváleno (Oprávnění obnoveno)' : ap.status === 'REJECTED' ? 'Zamítnuto' : 'Čeká na vyřízení adminem';
+    const fileInfo = ap.file ? ` · Příloha: ${esc(ap.file)}` : "";
+    box.innerHTML = `<div style="background:var(--accent-soft); color:var(--accent-ink); padding:8px 10px; border-radius:6px; font-size:12px;"><b>Sledování odvolání:</b> Stav: <b>${stLabel}</b> (Odesláno: ${fmt(ap.date)})${fileInfo}</div>`;
+    document.getElementById("apText").value = ap.text;
   } else {
     box.innerHTML = "";
     document.getElementById("apText").value = "";
@@ -801,30 +852,99 @@ function openAppealModal() {
 }
 function closeAppealModal() { toggleModal("appealModal", false); }
 
-function submitAppealForm(ev) {
+async function submitAppealForm(ev) {
   ev.preventDefault();
   if (!currentUser) return false;
-  const text = document.getElementById("apText").value.trim();
-  const fileInput = document.getElementById("apFile");
-  const fileName = fileInput.files.length ? fileInput.files[0].name : "potvrzeni_bezuhonnosti.pdf";
 
-  currentUser.appeal = {
-    text,
-    file: fileName,
-    date: new Date().toISOString(),
-    status: "PENDING"
-  };
+  const msgEl = document.getElementById("appealMsg");
+  const showErr = text => { msgEl.textContent = text; msgEl.className = "formmsg show err"; };
+  msgEl.className = "formmsg";
+
+  const text = document.getElementById("apText").value.trim();
+  const file = document.getElementById("apFile").files[0] || null;
+  let attachment = { file: null, fileType: null, fileSize: 0, fileData: null };
+
+  if (file) {
+    if (file.size > APPEAL_MAX_BYTES) {
+      showErr(`Příloha je příliš velká (${formatBytes(file.size)}). Maximum je ${formatBytes(APPEAL_MAX_BYTES)} — zmenšete soubor nebo nahrajte sken s nižším rozlišením.`);
+      return false;
+    }
+    try {
+      attachment = {
+        file: file.name,
+        fileType: file.type || guessMimeFromName(file.name) || "application/octet-stream",
+        fileSize: file.size,
+        fileData: await readFileAsDataUrl(file)
+      };
+    } catch (e) {
+      showErr("Soubor se nepodařilo načíst. Zkuste jej vybrat znovu.");
+      return false;
+    }
+  }
+
+  const previous = currentUser.appeal;
+  currentUser.appeal = { text, ...attachment, date: new Date().toISOString(), status: "PENDING" };
+
+  if (!saveDb()) {
+    currentUser.appeal = previous;
+    showErr("Odvolání se nepodařilo uložit — úložiště prohlížeče je plné. Zkuste menší přílohu.");
+    return false;
+  }
 
   db.users.filter(u => u.role === "admin").forEach(a => {
-    pushNotif(a.email, `📩 Zaměstnanec ${currentUser.name} podal odvolání k zákazů řízení.`);
+    pushNotif(a.email, `📩 Zaměstnanec ${currentUser.name} podal odvolání k zákazu řízení.`);
   });
 
-  pushLog("Zaměstnanec", `Podáno odvolání k zákazu řízení (${currentUser.name})`);
+  pushLog("Zaměstnanec", `Podáno odvolání k zákazu řízení (${currentUser.name})${attachment.file ? `, příloha: ${attachment.file}` : ""}`);
   saveDb();
+  document.getElementById("apFile").value = "";
   closeAppealModal();
   alert("Vaše odvolání bylo odesláno k přezkoumání administrátorovi.");
   renderAll();
   return false;
+}
+
+function revokeAppealPreview() {
+  if (appealPreviewUrl) { URL.revokeObjectURL(appealPreviewUrl); appealPreviewUrl = null; }
+}
+
+function renderAppealAttachment(ap) {
+  const box = document.getElementById("adFileBox");
+  revokeAppealPreview();
+
+  if (!ap.file) {
+    box.innerHTML = `<span class="sub">Žadatel nepřiložil žádnou přílohu.</span>`;
+    return;
+  }
+  if (!ap.fileData) {
+    box.innerHTML = `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"><span class="badge pending">${esc(ap.file)}</span></div>
+      <p class="sub" style="margin:6px 0 0;">Obsah této přílohy není v systému uložen (starší záznam). Požádejte zaměstnance o opětovné podání odvolání s přílohou.</p>`;
+    return;
+  }
+
+  let blob;
+  try { blob = dataUrlToBlob(ap.fileData, ap.fileType); }
+  catch (e) { box.innerHTML = `<span class="sub">Přílohu se nepodařilo otevřít — soubor je poškozený.</span>`; return; }
+
+  appealPreviewUrl = URL.createObjectURL(blob);
+  const url = appealPreviewUrl;
+  const type = blob.type || "";
+  const preview = type.startsWith("image/")
+    ? `<img class="ad-preview" src="${url}" alt="Příloha odvolání">`
+    : type === "application/pdf"
+      ? `<iframe class="ad-preview" src="${url}" title="Příloha odvolání"></iframe>`
+      : `<p class="sub" style="margin:8px 0 0;">Pro tento typ souboru není náhled dostupný — stáhněte si jej.</p>`;
+
+  box.innerHTML = `
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <span class="badge confirmed">${esc(ap.file)}</span>
+      <span class="sub">${formatBytes(ap.fileSize || blob.size)}</span>
+    </div>
+    ${preview}
+    <div class="ad-file-actions">
+      <a class="btn line small" href="${url}" target="_blank" rel="noopener">Otevřít v novém okně</a>
+      <a class="btn line small" href="${url}" download="${esc(ap.file)}">Stáhnout</a>
+    </div>`;
 }
 
 function openAppealDetailModal(userId) {
@@ -834,18 +954,14 @@ function openAppealDetailModal(userId) {
   document.getElementById("adUserName").textContent = `${u.name} (${u.code || 'EMP-' + u.id})`;
   document.getElementById("adDate").textContent = fmt(u.appeal.date);
   document.getElementById("adText").textContent = u.appeal.text;
-  document.getElementById("adFile").textContent = u.appeal.file || "potvrzeni_bezuhonnosti.pdf";
-
-  document.getElementById("adFileBtn").onclick = () => {
-    alert(`[Simulované prohlížení / stažení souboru]:\n\nNázev souboru: ${u.appeal.file || "priloha.pdf"}\nOdesílatel: ${u.name}\nObsah přílohy byl ověřen.`);
-  };
+  renderAppealAttachment(u.appeal);
 
   document.getElementById("adApproveBtn").onclick = () => decideAppeal(u.id, true);
   document.getElementById("adRejectBtn").onclick = () => decideAppeal(u.id, false);
 
   toggleModal("appealDetailModal", true);
 }
-function closeAppealDetailModal() { toggleModal("appealDetailModal", false); }
+function closeAppealDetailModal() { revokeAppealPreview(); toggleModal("appealDetailModal", false); }
 
 function decideAppeal(userId, approve) {
   const u = db.users.find(x => x.id === userId);
@@ -924,103 +1040,381 @@ function renderTopBarAuth() {
     : `<div class="user-badge"><span class="user-info"><b>${currentUser.name}</b> (${roleLabel(currentUser.role)})</span><button class="btn line small" onclick="logout()">Odhlásit se</button></div>`;
 }
 
+/* ---------- Fleet sidebar: max 5 vozidel, volná nahoře, obsazená podle času uvolnění ---------- */
+const SIDEBAR_LIMIT = 5;
+
+function computeFleetStatuses() {
+  const now = new Date();
+  const list = db.vehicles.map(v => {
+    const stkDiff = daysDiffFromNow(v.stkDate);
+    const res = db.reservations
+      .filter(r => r.vehicleId === v.id && r.status !== "REJECTED")
+      .map(r => ({ s: parseIsoLocal(r.start), e: parseIsoLocal(r.end) }))
+      .filter(x => x.e > now)
+      .sort((a, b) => a.s - b.s);
+
+    if (stkDiff < 0) return { vehicle: v, state: "EXPIRED_STK", rank: 3, sortKey: 0 };
+
+    const active = res.find(x => x.s <= now);
+    if (active) {
+      // navazující rezervace za sebou → vozidlo je skutečně volné až po poslední z nich
+      let freeAt = active.e;
+      res.forEach(x => { if (x.s <= freeAt && x.e > freeAt) freeAt = x.e; });
+      return { vehicle: v, state: "BUSY", rank: 2, sortKey: freeAt.getTime(), freeAt };
+    }
+    if (res.length) return { vehicle: v, state: "UPCOMING", rank: 1, sortKey: -res[0].s.getTime(), nextStart: res[0].s };
+    return { vehicle: v, state: "FREE", rank: 0, sortKey: 0 };
+  });
+
+  return list.sort((a, b) =>
+    a.rank - b.rank || a.sortKey - b.sortKey ||
+    (a.vehicle.name + a.vehicle.plate).localeCompare(b.vehicle.name + b.vehicle.plate, "cs")
+  );
+}
+
 function renderFleetSidebar() {
   const el = document.getElementById("fleetList");
   if (!el) return;
-  document.getElementById("fleetCount").textContent = db.vehicles.length;
 
-  const now = new Date();
-  const statusList = db.vehicles.map(v => {
-    const stkDiff = daysDiffFromNow(v.stkDate);
-    const reservations = db.reservations.filter(r => r.vehicleId === v.id && r.status !== "REJECTED");
-    const activeRes = reservations.find(r => parseIsoLocal(r.start) <= now && now < parseIsoLocal(r.end));
-    const upcomingRes = !activeRes ? reservations.filter(r => parseIsoLocal(r.start) > now).sort((a, b) => parseIsoLocal(a.start) - parseIsoLocal(a.start))[0] : null;
-
-    let state = stkDiff < 0 ? "EXPIRED_STK" : activeRes ? "BUSY" : upcomingRes ? "UPCOMING" : "FREE";
-    return { vehicle: v, state, activeRes, upcomingRes, stkDiff };
-  });
+  const all = computeFleetStatuses();
+  const shown = all.slice(0, SIDEBAR_LIMIT);
+  document.getElementById("fleetCount").textContent = all.length > shown.length ? `${shown.length} z ${all.length}` : all.length;
 
   const nowMs = Date.now();
-  el.innerHTML = statusList.map(item => {
+  const badgeStyle = `style="margin-top:6px; align-self:flex-start"`;
+
+  el.innerHTML = shown.map(item => {
     const v = item.vehicle;
-    let badgeHtml = "";
+    let badgeHtml = "", extra = "";
 
     if (item.state === "EXPIRED_STK") {
-      badgeHtml = `<span class="badge rejected" style="margin-top:6px; align-self:flex-start"><span class="dot"></span>Neplatná STK!</span>`;
+      badgeHtml = `<span class="badge rejected" ${badgeStyle}><span class="dot"></span>Neplatná STK!</span>`;
     } else if (item.state === "BUSY") {
-      const endMs = parseIsoLocal(item.activeRes.end).getTime();
-      badgeHtml = `<span class="badge pending" style="margin-top:6px; align-self:flex-start"><span class="dot"></span>Obsazeno <span class="cd-timer" data-type="busy" data-target="${endMs}">(zbývá ${formatRemainingTime(endMs - nowMs)})</span></span>`;
+      const endMs = item.freeAt.getTime();
+      badgeHtml = `<span class="badge pending" ${badgeStyle}><span class="dot"></span>Obsazeno <span class="cd-timer" data-type="busy" data-target="${endMs}">(zbývá ${formatRemainingTime(endMs - nowMs)})</span></span>`;
+      extra = `<span class="meta">Volné od ${fmtDate(item.freeAt)}</span>`;
     } else if (item.state === "UPCOMING") {
-      const startMs = parseIsoLocal(item.upcomingRes.start).getTime();
-      badgeHtml = `<span class="badge confirmed" style="margin-top:6px; align-self:flex-start"><span class="dot"></span>Dostupné <span class="cd-timer" data-type="upcoming" data-target="${startMs}">(pouze ${formatRemainingTime(startMs - nowMs)})</span></span>`;
+      const startMs = item.nextStart.getTime();
+      badgeHtml = `<span class="badge confirmed" ${badgeStyle}><span class="dot"></span>Dostupné <span class="cd-timer" data-type="upcoming" data-target="${startMs}">(pouze ${formatRemainingTime(startMs - nowMs)})</span></span>`;
     } else {
-      badgeHtml = `<span class="badge confirmed" style="margin-top:6px; align-self:flex-start"><span class="dot"></span>Dostupné</span>`;
+      badgeHtml = `<span class="badge confirmed" ${badgeStyle}><span class="dot"></span>Dostupné</span>`;
     }
 
-    return `<div class="fleetcard" onclick="openVehicleDetailModal(${v.id})" style="cursor:pointer;" title="Klikněte pro detail"><span class="name">${v.name}</span><span class="meta">${v.type} · ${v.location}</span><span class="plate">${v.plate}</span>${badgeHtml}</div>`;
+    return `<div class="fleetcard" onclick="openVehicleDetailModal(${v.id})" style="cursor:pointer;" title="Klikněte pro detail"><span class="name">${esc(v.name)}</span><span class="meta">${esc(v.type)} · ${esc(v.location)}</span><span class="plate">${esc(v.plate)}</span>${badgeHtml}${extra}</div>`;
   }).join("") || `<div class="empty-note">Žádná vozidla ve flotile.</div>`;
+
+  if (all.length > shown.length) {
+    el.insertAdjacentHTML("beforeend", `<div class="empty-note fleet-more">Zobrazeno ${shown.length} nejdostupnějších vozidel z ${all.length}.</div>`);
+  }
 
   startFleetCountdownTimer();
 }
 
-function renderTimetable() {
-  const containerEmp = document.getElementById("timetableGrid");
-  const containerMng = document.getElementById("timetableGridManager");
-  const targetContainers = [containerEmp, containerMng].filter(Boolean);
-  if (!targetContainers.length) return;
+/* ---------- Kalendář rezervací (týdenní pohled jako Google Kalendář) ---------- */
+const TT_HOUR_H = 44;          // výška jedné hodiny v px (musí odpovídat --tt-hh)
+const TT_SLOT_MIN = 30;        // krok výběru termínu
+const TT_DEFAULT_MIN = 120;    // délka termínu při pouhém kliknutí
+const DAYS_CS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
+const ttState = { vehicleId: null, overview: false, weekOffset: 0 };
+let ttDrag = null;
 
-  const today = new Date();
-  const days = Array.from({length: 7}, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    return d;
+const canBookFromCalendar = () => !!currentUser && currentUser.role === "employee" && currentUser.canDrive !== false;
+
+function ensureTtVehicle() {
+  if (vehicleById(ttState.vehicleId)) return;
+  const best = computeFleetStatuses().find(x => x.state !== "EXPIRED_STK") || computeFleetStatuses()[0];
+  ttState.vehicleId = best ? best.vehicle.id : null;
+}
+
+function ttWeekDays() {
+  const base = addDays(startOfWeek(new Date()), ttState.weekOffset * 7);
+  return Array.from({ length: 7 }, (_, i) => addDays(base, i));
+}
+
+function ttSetVehicle(val) {
+  if (val === "ALL") ttState.overview = true;
+  else { ttState.overview = false; ttState.vehicleId = Number(val); }
+  renderVehicleSelect();
+  renderTimetable();
+}
+function ttShiftWeek(delta) { ttState.weekOffset += delta; renderTimetable(); }
+function ttToday() { ttState.weekOffset = 0; renderTimetable(); }
+
+function onFormVehicleChange() {
+  const id = Number(document.getElementById("fVehicle").value);
+  if (!vehicleById(id)) return;
+  ttState.vehicleId = id;
+  ttState.overview = false;
+  renderTimetable();
+}
+
+function scrollToResForm() {
+  document.getElementById("resForm")?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function ttNotice(text, type, withButton = false) {
+  document.querySelectorAll(".tt2-notice").forEach(n => {
+    n.className = `tt2-notice ${type}`;
+    n.innerHTML = `<span>${text}</span>${withButton ? `<button type="button" class="btn confirm small" onclick="scrollToResForm()">Pokračovat k rezervaci ↓</button>` : ""}`;
   });
+}
 
-  let daysHeader = days.map(d => `<div class="tt-col-head">${d.getDate()}. ${d.getMonth() + 1}.</div>`).join("");
-
-  let html = `
-    <div class="tt-table">
-      <div class="tt-row tt-header">
-        <div class="tt-vcol">Vozidlo</div>
-        ${daysHeader}
+function buildTtToolbar(days) {
+  const options = [`<option value="ALL" ${ttState.overview ? "selected" : ""}>Přehled všech vozidel</option>`]
+    .concat(db.vehicles.map(v => `<option value="${v.id}" ${!ttState.overview && v.id === ttState.vehicleId ? "selected" : ""}>${esc(v.name)} — ${esc(v.plate)}</option>`))
+    .join("");
+  const range = `${days[0].getDate()}. ${days[0].getMonth() + 1}. – ${formatCsDate(days[6])}`;
+  return `
+    <div class="tt2-toolbar">
+      <select class="tt2-select" onchange="ttSetVehicle(this.value)" aria-label="Vozidlo v kalendáři">${options}</select>
+      <div class="tt2-nav">
+        <button type="button" class="cdp-nav" onclick="ttShiftWeek(-1)" title="Předchozí týden" aria-label="Předchozí týden">&lsaquo;</button>
+        <button type="button" class="btn line small" onclick="ttToday()">Dnes</button>
+        <button type="button" class="cdp-nav" onclick="ttShiftWeek(1)" title="Další týden" aria-label="Další týden">&rsaquo;</button>
       </div>
-  `;
+      <span class="tt2-range">${range}</span>
+    </div>
+    <div class="tt2-notice hidden"></div>`;
+}
 
-  db.vehicles.forEach(v => {
-    const stkDiff = daysDiffFromNow(v.stkDate);
+function buildOverviewHtml(days) {
+  const now = new Date();
+  const head = days.map((d, i) => `<div class="tt-col-head${sameDay(d, now) ? " tt-today" : ""}">${DAYS_CS[i]} ${d.getDate()}. ${d.getMonth() + 1}.</div>`).join("");
+
+  const rows = db.vehicles.map(v => {
+    const stkEnd = addDays(parseDateOnly(v.stkDate), 1);
     const vRes = db.reservations.filter(r => r.vehicleId === v.id && r.status !== "REJECTED");
 
-    let daysCells = days.map(d => {
-      const dayStart = new Date(d); dayStart.setHours(0,0,0,0);
-      const dayEnd = new Date(d); dayEnd.setHours(23,59,59,999);
+    const cells = days.map(d => {
+      const ds = startOfDay(d), de = addDays(ds, 1);
+      if (ds >= stkEnd) return `<div class="tt-cell tt-blocked" title="Prošlá STK" onclick="ttSetVehicle(${v.id})">STK!</div>`;
 
-      if (stkDiff < 0) {
-        return `<div class="tt-cell tt-blocked" title="Prošlá STK">STK!</div>`;
-      }
+      const onDay = vRes.filter(r => overlaps(ds, de, parseIsoLocal(r.start), parseIsoLocal(r.end)));
+      if (!onDay.length) return `<div class="tt-cell tt-free" title="Volno" onclick="ttSetVehicle(${v.id})">✓</div>`;
 
-      const activeOnDay = vRes.find(r => overlaps(dayStart, dayEnd, parseIsoLocal(r.start), parseIsoLocal(r.end)));
-
-      if (activeOnDay) {
-        return `<div class="tt-cell tt-busy" title="Rezervováno: ${activeOnDay.employeeName} (${fmt(activeOnDay.start)} - ${fmt(activeOnDay.end)})">${activeOnDay.employeeName.split(' ')[0]}</div>`;
-      } else {
-        return `<div class="tt-cell tt-free" title="Volno">✓</div>`;
-      }
+      const allPending = onDay.every(r => r.status === "PENDING");
+      const first = esc(onDay[0].employeeName.split(" ")[0]) + (onDay.length > 1 ? ` +${onDay.length - 1}` : "");
+      const title = onDay.map(r => `${r.employeeName} (${fmt(r.start)} - ${fmt(r.end)})${r.status === "PENDING" ? " — čeká na schválení" : ""}`).join("\n");
+      return `<div class="tt-cell tt-busy${allPending ? " tt-pending" : ""}" title="${esc(title)}" onclick="ttSetVehicle(${v.id})">${first}</div>`;
     }).join("");
 
-    html += `
-      <div class="tt-row">
-        <div class="tt-vcol" onclick="openVehicleDetailModal(${v.id})" style="cursor:pointer;" title="Zobrazit detail">
-          <b>${v.name}</b>
-          <span class="sub">${v.plate}</span>
-        </div>
-        ${daysCells}
+    return `<div class="tt-row">
+      <div class="tt-vcol" onclick="ttSetVehicle(${v.id})" style="cursor:pointer;" title="Zobrazit kalendář vozidla"><b>${esc(v.name)}</b><span class="sub">${esc(v.plate)}</span></div>
+      ${cells}
+    </div>`;
+  }).join("");
+
+  return `<div class="timetable-wrap"><div class="tt-table"><div class="tt-row tt-header"><div class="tt-vcol">Vozidlo</div>${head}</div>${rows}</div></div>
+    <div class="tt2-hint">Kliknutím na vozidlo nebo den otevřete jeho podrobný kalendář.</div>`;
+}
+
+function buildCalendarHtml(days) {
+  const v = vehicleById(ttState.vehicleId);
+  if (!v) return `<div class="empty-note">Žádná vozidla ve flotile.</div>`;
+
+  const H = TT_HOUR_H, now = new Date();
+  const canBook = canBookFromCalendar();
+  const stkEnd = addDays(parseDateOnly(v.stkDate), 1);   // od tohoto okamžiku je vozidlo zablokováno
+  const vRes = db.reservations.filter(r => r.vehicleId === v.id && r.status !== "REJECTED");
+
+  // termín právě vybraný ve formuláři (zobrazí se jako přerušovaný blok)
+  let sel = null;
+  if (currentUser && currentUser.role === "employee") {
+    const fs = parseIsoLocal(getInputValue("fStart")), fe = parseIsoLocal(getInputValue("fEnd"));
+    if (fs && fe && fs < fe) sel = { s: fs, e: fe };
+  }
+
+  const segment = (s, e, ds, de) => {
+    const segS = new Date(Math.max(s, ds)), segE = new Date(Math.min(e, de));
+    if (segS >= segE) return null;
+    return {
+      top: (segS - ds) / 60000 * (H / 60),
+      height: Math.max((segE - segS) / 60000 * (H / 60), 20),
+      startsHere: s >= ds, endsHere: e <= de
+    };
+  };
+
+  const head = days.map((d, i) => `<div class="tt2-dayhead${sameDay(d, now) ? " today" : ""}"><span>${DAYS_CS[i]}</span><b>${d.getDate()}</b></div>`).join("");
+  const hours = Array.from({ length: 23 }, (_, i) => `<div class="tt2-hour" style="top:${(i + 1) * H}px">${pad(i + 1)}:00</div>`).join("");
+  let anyBlocked = false;
+
+  const cols = days.map(d => {
+    const ds = startOfDay(d), de = addDays(ds, 1);
+    const isToday = sameDay(d, now);
+    const blocked = ds >= stkEnd;
+    if (blocked) anyBlocked = true;
+
+    let inner = "";
+    const pastPx = Math.min(Math.max((now - ds) / 60000 * (H / 60), 0), 24 * H);
+    if (pastPx > 0) inner += `<div class="tt2-pastfill" style="height:${pastPx}px"></div>`;
+
+    vRes.forEach(r => {
+      const s = parseIsoLocal(r.start), e = parseIsoLocal(r.end);
+      const seg = segment(s, e, ds, de);
+      if (!seg) return;
+      const mine = currentUser && r.employeeEmail === currentUser.email;
+      const timeLabel = seg.startsHere && seg.endsHere ? `${hhmm(s)}–${hhmm(e)}` : seg.startsHere ? `od ${hhmm(s)}` : seg.endsHere ? `do ${hhmm(e)}` : "celý den";
+      const name = mine ? "Vaše rezervace" : esc(r.employeeName);
+      const title = `${r.employeeName} — ${fmt(r.start)} → ${fmt(r.end)} (${statusLabel(r.status)})`;
+      inner += `<div class="tt2-ev ${r.status === "PENDING" ? "pending" : "confirmed"}${mine ? " mine" : ""}${seg.startsHere ? "" : " cont-top"}${seg.endsHere ? "" : " cont-bottom"}" style="top:${seg.top}px; height:${seg.height}px" title="${esc(title)}"><span class="n">${name}</span><span class="t">${timeLabel}${r.status === "PENDING" ? " · čeká" : ""}</span></div>`;
+    });
+
+    if (sel) {
+      const seg = segment(sel.s, sel.e, ds, de);
+      if (seg) {
+        const label = seg.startsHere && seg.endsHere ? `${hhmm(sel.s)}–${hhmm(sel.e)}` : "Vybraný termín";
+        inner += `<div class="tt2-sel" style="top:${seg.top}px; height:${seg.height}px"><span class="n">Vybráno</span><span class="t">${label}</span></div>`;
+      }
+    }
+
+    if (isToday) inner += `<div class="tt2-now" style="top:${(now - ds) / 60000 * (H / 60)}px"></div>`;
+
+    return `<div class="tt2-daycol${isToday ? " today" : ""}${blocked ? " blocked" : ""}" data-day="${ds.getTime()}">${inner}</div>`;
+  }).join("");
+
+  const stkDiff = daysDiffFromNow(v.stkDate);
+  const stkBanner = stkDiff < 0
+    ? `<div class="formmsg err show">Vozidlo má prošlou STK (${formatCsDate(parseDateOnly(v.stkDate))}) a nelze jej rezervovat.</div>`
+    : anyBlocked
+      ? `<div class="formmsg err show">STK vozidla platí do ${formatCsDate(parseDateOnly(v.stkDate))} — po tomto dni nelze vozidlo rezervovat (šrafované dny).</div>`
+      : "";
+
+  const hint = canBook
+    ? `<div class="tt2-hint">Kliknutím do volného místa vyberete termín (${TT_DEFAULT_MIN / 60} h), tažením nastavíte vlastní délku. Delší termíny upravíte ve formuláři níže.</div>`
+    : currentUser && currentUser.role === "employee"
+      ? `<div class="tt2-hint">Máte pozastavené oprávnění k řízení — kalendář je pouze pro čtení.</div>`
+      : "";
+
+  return `${stkBanner}${hint}
+    <div class="tt2-scroll${canBook ? "" : " tt2-readonly"}">
+      <div class="tt2-inner" style="--tt-hh:${H}px">
+        <div class="tt2-head"><div class="tt2-corner"></div>${head}</div>
+        <div class="tt2-body"><div class="tt2-times">${hours}</div>${cols}</div>
       </div>
-    `;
+    </div>
+    <div class="tt2-legend">
+      <span><i class="lg confirmed"></i>Potvrzeno</span>
+      <span><i class="lg pending"></i>Čeká na schválení</span>
+      ${currentUser && currentUser.role === "employee" ? `<span><i class="lg sel"></i>Vybraný termín</span>` : ""}
+      <span><i class="lg blocked"></i>Nelze rezervovat</span>
+    </div>`;
+}
+
+function renderTimetable() {
+  const containers = [document.getElementById("timetableGrid"), document.getElementById("timetableGridManager")].filter(Boolean);
+  if (!containers.length) return;
+
+  ensureTtVehicle();
+  const days = ttWeekDays();
+  const html = buildTtToolbar(days) + (ttState.overview ? buildOverviewHtml(days) : buildCalendarHtml(days));
+
+  containers.forEach(c => {
+    const prev = c.querySelector(".tt2-scroll");
+    const prevTop = prev ? prev.scrollTop : null;
+    const prevLeft = prev ? prev.scrollLeft : 0;
+    c.innerHTML = html;
+
+    const sc = c.querySelector(".tt2-scroll");
+    if (!sc) return;
+    if (prevTop !== null) { sc.scrollTop = prevTop; sc.scrollLeft = prevLeft; }
+    else {
+      const h = ttState.weekOffset === 0 ? Math.min(Math.max(new Date().getHours() - 2, 6), 14) : 7;
+      sc.scrollTop = h * TT_HOUR_H;
+    }
+
+    if (canBookFromCalendar()) {
+      sc.querySelectorAll(".tt2-daycol:not(.blocked)").forEach(col => {
+        col.addEventListener("pointerdown", onTtPointerDown);
+        col.addEventListener("pointermove", onTtPointerMove);
+        col.addEventListener("pointerup", onTtPointerUp);
+        col.addEventListener("pointercancel", onTtPointerCancel);
+      });
+    }
   });
+}
 
-  html += `</div>`;
+/* --- výběr termínu klikem / tažením --- */
+function ttSlotAt(col, clientY) {
+  const slots = 24 * 60 / TT_SLOT_MIN;
+  const idx = Math.floor((clientY - col.getBoundingClientRect().top) / (TT_HOUR_H * TT_SLOT_MIN / 60));
+  return Math.max(0, Math.min(slots - 1, idx));
+}
 
-  targetContainers.forEach(c => c.innerHTML = html);
+function ttDrawGhost() {
+  if (!ttDrag || !ttDrag.moved) return;
+  const lo = Math.min(ttDrag.anchor, ttDrag.cur), hi = Math.max(ttDrag.anchor, ttDrag.cur) + 1;
+  let g = ttDrag.col.querySelector(".tt2-ghost");
+  if (!g) { g = document.createElement("div"); g.className = "tt2-ghost"; ttDrag.col.appendChild(g); }
+  const slotPx = TT_HOUR_H * TT_SLOT_MIN / 60;
+  const t = n => `${pad(Math.floor(n * TT_SLOT_MIN / 60) % 24)}:${pad(n * TT_SLOT_MIN % 60)}`;
+  g.style.top = `${lo * slotPx}px`;
+  g.style.height = `${(hi - lo) * slotPx}px`;
+  g.innerHTML = `<span class="t">${t(lo)}–${hi * TT_SLOT_MIN >= 1440 ? "24:00" : t(hi)}</span>`;
+}
+
+function onTtPointerDown(e) {
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  if (e.target.closest(".tt2-ev")) return;
+  const col = e.currentTarget;
+  const dayStart = new Date(Number(col.dataset.day));
+  const idx = ttSlotAt(col, e.clientY);
+  if (new Date(dayStart.getTime() + (idx + 1) * TT_SLOT_MIN * 60000) <= new Date()) return;   // minulost
+  ttDrag = { col, dayStart, anchor: idx, cur: idx, moved: false, pointerId: e.pointerId };
+  try { col.setPointerCapture(e.pointerId); } catch (err) {}
+}
+
+function onTtPointerMove(e) {
+  if (!ttDrag || e.pointerId !== ttDrag.pointerId) return;
+  const idx = ttSlotAt(ttDrag.col, e.clientY);
+  if (idx === ttDrag.cur) return;
+  ttDrag.cur = idx;
+  if (idx !== ttDrag.anchor) ttDrag.moved = true;
+  ttDrawGhost();
+}
+
+function onTtPointerCancel() {
+  if (!ttDrag) return;
+  ttDrag.col.querySelector(".tt2-ghost")?.remove();
+  ttDrag = null;
+}
+
+function onTtPointerUp(e) {
+  if (!ttDrag || e.pointerId !== ttDrag.pointerId) return;
+  const d = ttDrag;
+  ttDrag = null;
+  try { d.col.releasePointerCapture(e.pointerId); } catch (err) {}
+  const slotsPerDay = 24 * 60 / TT_SLOT_MIN;
+  const lo = Math.min(d.anchor, d.cur);
+  let hi = Math.max(d.anchor, d.cur) + 1;
+  if (!d.moved) hi = Math.min(lo + TT_DEFAULT_MIN / TT_SLOT_MIN, slotsPerDay);
+  applyCalendarSelection(d.dayStart, lo, hi);
+}
+
+function applyCalendarSelection(dayStart, lo, hi) {
+  const v = vehicleById(ttState.vehicleId);
+  if (!v || !canBookFromCalendar()) return;
+
+  const step = TT_SLOT_MIN * 60000, now = new Date();
+  let start = new Date(dayStart.getTime() + lo * step);
+  let end = new Date(dayStart.getTime() + hi * step);
+  if (start < now) start = new Date(Math.ceil(now.getTime() / 300000) * 300000);   // začátek v minulosti → nejbližších 5 min
+  if (end - start < step) end = new Date(start.getTime() + step);
+
+  document.getElementById("formMsg").className = "formmsg";
+
+  const clash = db.reservations.some(r => r.vehicleId === v.id && r.status !== "REJECTED" && overlaps(start, end, parseIsoLocal(r.start), parseIsoLocal(r.end)));
+  if (clash) {
+    renderTimetable();
+    ttNotice("Vybraný termín se kryje s jinou rezervací tohoto vozidla. Zvolte volné místo v kalendáři.", "err");
+    return;
+  }
+
+  setInputValue("fStart", start);
+  setInputValue("fEnd", end);
+  renderVehicleSelect();
+  renderFleetSidebar();
+  renderTimetable();
+  ttNotice(`Vybráno: <b>${esc(v.name)}</b>, ${fmtDate(start)} → ${fmtDate(end)}. Termín je předvyplněný ve formuláři.`, "ok", true);
 }
 
 /* ---------- Manager Alert List (RED Critical ONLY) ---------- */
@@ -1042,7 +1436,7 @@ function renderAlertsList() {
     }
     if (v.defects) {
       v.defects.filter(d => d.status === "OPEN").forEach(d => {
-        redAlertItems.push({ type: "VADA", text: `<b>${v.name} (${v.plate})</b> — Akutní vada: "${d.text}" od ${d.reporterEmail}`, vId: v.id, defectId: d.id });
+        redAlertItems.push({ type: "VADA", text: `<b>${v.name} (${v.plate})</b> — Akutní vada: "${esc(d.text)}" od ${esc(d.reporterEmail)}`, vId: v.id, defectId: d.id });
       });
     }
   });
@@ -1193,8 +1587,8 @@ function renderDefectsTab() {
       <div class="ritem">
         <div>
           <span class="badge rejected" style="margin-right:6px;"><span class="dot"></span>Otevřená</span>
-          <b>${item.vehicleName} (${item.plate})</b>: "${item.defect.text}"
-          <div style="font-size:11px; color:var(--muted); margin-top:2px;">Nahlásil: ${item.defect.reporterEmail} · ${fmt(item.defect.date)}</div>
+          <b>${item.vehicleName} (${item.plate})</b>: "${esc(item.defect.text)}"
+          <div style="font-size:11px; color:var(--muted); margin-top:2px;">Nahlásil: ${esc(item.defect.reporterEmail)} · ${fmt(item.defect.date)}</div>
         </div>
         <div class="actions">
           <button class="btn confirm small" onclick="resolveDefect(${item.vId}, ${item.defect.id})">Označit vyřešeno</button>
@@ -1215,8 +1609,8 @@ function renderDefectsTab() {
       <div class="ritem" style="opacity:0.75;">
         <div>
           <span class="badge confirmed" style="margin-right:6px;"><span class="dot"></span>Vyřešeno</span>
-          <b>${item.vehicleName} (${item.plate})</b>: "${item.defect.text}"
-          <div style="font-size:11px; color:var(--muted); margin-top:2px;">Nahlásil: ${item.defect.reporterEmail} · ${fmt(item.defect.date)}</div>
+          <b>${item.vehicleName} (${item.plate})</b>: "${esc(item.defect.text)}"
+          <div style="font-size:11px; color:var(--muted); margin-top:2px;">Nahlásil: ${esc(item.defect.reporterEmail)} · ${fmt(item.defect.date)}</div>
         </div>
         <div class="actions">
           <button class="btn line small" onclick="openEditDefectModal(${item.vId}, ${item.defect.id})">Upravit</button>
@@ -1245,6 +1639,7 @@ function renderVehicleSelect() {
   const sel = document.getElementById("fVehicle");
   if (!sel) return;
 
+  ensureTtVehicle();
   const startVal = getInputValue("fStart"), endVal = getInputValue("fEnd");
   const start = parseIsoLocal(startVal), end = parseIsoLocal(endVal);
 
@@ -1256,8 +1651,11 @@ function renderVehicleSelect() {
     const disabled = isStkExpired || isClashed;
     const statusText = isStkExpired ? " ❌ (Prošlá STK — Nelze rezervovat)" : isClashed ? " ❌ (Obsazeno v tomto termínu)" : " ✅ (Dostupné)";
 
-    return `<option value="${v.id}" ${disabled ? "disabled" : ""}>${v.name} — ${v.plate}${statusText}</option>`;
+    return `<option value="${v.id}" ${disabled ? "disabled" : ""}>${esc(v.name)} — ${esc(v.plate)}${statusText}</option>`;
   }).join("");
+
+  // vybrané vozidlo se drží společně s kalendářem (a nepřeskočí na první položku při změně termínu)
+  if (vehicleById(ttState.vehicleId)) sel.value = String(ttState.vehicleId);
 }
 
 function renderMyReservations() {
@@ -1317,23 +1715,48 @@ function renderFleetTable() {
 }
 
 function renderReservationsTable() {
-  const el = document.getElementById("resTable");
+  const el = document.getElementById("resSections");
   if (!el) return;
-  const list = db.reservations.slice().reverse();
-  el.innerHTML = list.map(r => {
-    const v = vehicleById(r.vehicleId);
-    return `<tr>
-      <td>${v ? v.name : "—"}</td>
-      <td>${r.employeeName}</td>
-      <td>${fmt(r.start)}</td>
-      <td>${fmt(r.end)}</td>
-      <td><span class="badge ${statusClass(r.status)}"><span class="dot"></span>${statusLabel(r.status)}</span></td>
-      <td>
-        <button class="btn line small" onclick="managerDecision(${r.id}, true)">Potvrdit</button>
-        <button class="btn reject small" onclick="managerDecision(${r.id}, false)">Zrušit</button>
-      </td>
-    </tr>`;
-  }).join("") || `<tr><td colspan="6" class="empty-note">Žádné rezervace.</td></tr>`;
+
+  const now = new Date();
+  const items = db.reservations.map(r => ({ r, s: parseIsoLocal(r.start), e: parseIsoLocal(r.end) }));
+  const pending = items.filter(x => x.r.status === "PENDING").sort((a, b) => a.s - b.s);
+  const confirmed = items.filter(x => x.r.status === "CONFIRMED");
+  const upcoming = confirmed.filter(x => x.e > now).sort((a, b) => a.s - b.s);
+  const finished = confirmed.filter(x => x.e <= now).sort((a, b) => b.s - a.s);
+  const rejected = items.filter(x => x.r.status === "REJECTED").sort((a, b) => b.s - a.s);
+
+  const cells = x => {
+    const v = vehicleById(x.r.vehicleId);
+    return `<td>${v ? esc(v.name) : "—"}<br><span class="mono" style="font-size:11px; color:var(--muted);">${v ? esc(v.plate) : ""}</span></td>
+      <td>${esc(x.r.employeeName)}</td><td>${fmt(x.r.start)}</td><td>${fmt(x.r.end)}</td>`;
+  };
+  const badge = r => `<span class="badge ${statusClass(r.status)}"><span class="dot"></span>${statusLabel(r.status)}</span>`;
+  const table = (rows, withActions) => `<table class="atable">
+      <thead><tr><th>Vozidlo</th><th>Zaměstnanec</th><th>Začátek</th><th>Konec</th><th>Stav</th>${withActions ? "<th>Akce</th>" : ""}</tr></thead>
+      <tbody>${rows}</tbody></table>`;
+  const section = (title, cls, count, body) => `<section class="res-section">
+      <div class="section-head"><h3 class="res-h ${cls}">${title}</h3><span class="count-pill">${count}</span></div>${body}</section>`;
+
+  // 1) čekající na schválení → Schválit / Zamítnout
+  const pendingRows = pending.map(x => `<tr>${cells(x)}<td>${badge(x.r)}</td>
+      <td><button class="btn confirm small" onclick="managerDecision(${x.r.id}, true)">Schválit</button>
+          <button class="btn reject small" onclick="managerDecision(${x.r.id}, false)">Zamítnout</button></td></tr>`).join("");
+
+  // 2) schválené → pouze Zrušit (a jen pokud ještě neskončily)
+  const confirmedRows = upcoming.map(x => `<tr>${cells(x)}<td>${badge(x.r)}${x.s <= now ? ` <span class="res-note">probíhá</span>` : ""}</td>
+      <td><button class="btn reject small" onclick="managerDecision(${x.r.id}, false, true)">Zrušit</button></td></tr>`).join("")
+    + finished.map(x => `<tr class="res-past">${cells(x)}<td>${badge(x.r)} <span class="res-note">proběhlo</span></td><td><span style="color:var(--muted)">—</span></td></tr>`).join("");
+
+  // 3) zamítnuté / zrušené → jen historie
+  const rejectedRows = rejected.map(x => `<tr class="res-past">${cells(x)}<td>${badge(x.r)}</td></tr>`).join("");
+
+  el.innerHTML =
+    section("⏳ Čekají na schválení", "pending", pending.length,
+      pending.length ? table(pendingRows, true) : `<div class="empty-note">Žádné rezervace nečekají na schválení.</div>`) +
+    section("✅ Schválené rezervace", "confirmed", confirmed.length,
+      confirmed.length ? table(confirmedRows, true) : `<div class="empty-note">Zatím žádné schválené rezervace.</div>`) +
+    (rejected.length ? `<details class="res-section res-rejected"><summary><span class="res-h rejected">Zamítnuté a zrušené</span> <span class="count-pill">${rejected.length}</span></summary>${table(rejectedRows, false)}</details>` : "");
 }
 
 function renderUsersTable() {
@@ -1373,3 +1796,10 @@ function renderLog() {
 }
 
 renderAll();
+
+// posun čáry „teď“ v kalendáři (každou minutu, pokud uživatel právě nic nevybírá)
+setInterval(() => {
+  if (ttDrag || document.activeElement?.closest?.(".tt2-toolbar")) return;
+  renderTimetable();
+}, 60000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { renderTimetable(); renderFleetSidebar(); } });

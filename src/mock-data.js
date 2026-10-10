@@ -2,11 +2,18 @@
    Car-side — Simulated Database Schema & Seed Data
    ============================================================ */
 
+/* Pomocné funkce: ukázkové termíny jsou relativní k aktuálnímu času,
+   aby demo (kalendář i seznam vozidel) fungovalo kdykoliv a nebylo celé v minulosti. */
+const _pad2 = n => String(n).padStart(2, "0");
+const _iso = d => `${d.getFullYear()}-${_pad2(d.getMonth() + 1)}-${_pad2(d.getDate())}T${_pad2(d.getHours())}:${_pad2(d.getMinutes())}`;
+const _inHours = h => { const d = new Date(); d.setMinutes(0, 0, 0); d.setHours(d.getHours() + h); return _iso(d); };
+const _onDay = (days, hour) => { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(hour, 0, 0, 0); return _iso(d); };
+
 const INITIAL_DATABASE = {
   adminTab: "fleet",
   users: [
     { id: 1, code: "EMP-001", firstName: "Jana", lastName: "Nováková", name: "Jana Nováková", email: "jana.novakova@carside.cz", phone: "+420 771 123 456", password: "heslo", role: "employee", status: "ACTIVE", canDrive: true, appeal: null },
-    { id: 2, code: "EMP-002", firstName: "Petr", lastName: "Dvořák", name: "Petr Dvořák", email: "petr.dvorak@carside.cz", phone: "+420 772 234 567", password: "heslo", role: "employee", status: "ACTIVE", canDrive: false, appeal: { text: "Žádám o opětovné udělení oprávnění k řízení. Lhůta odebrání uplynula a neeviduji žádné přestupky.", file: "potvrzeni_bezuhonnosti.pdf", date: "2026-09-28T10:00", status: "PENDING" } },
+    { id: 2, code: "EMP-002", firstName: "Petr", lastName: "Dvořák", name: "Petr Dvořák", email: "petr.dvorak@carside.cz", phone: "+420 772 234 567", password: "heslo", role: "employee", status: "ACTIVE", canDrive: false, appeal: { text: "Žádám o opětovné udělení oprávnění k řízení. Lhůta odebrání uplynula a neeviduji žádné přestupky.", file: "potvrzeni_bezuhonnosti.pdf", fileType: "application/pdf", fileSize: 763, fileData: "data:application/pdf;base64,JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA1OTUgODQyXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCAvRm9udCA8PCAvRjEgNSAwIFIgPj4gPj4gPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAyMTggPj4Kc3RyZWFtCkJUIC9GMSAyMCBUZiA2MCA3NDAgVGQgKFBvdHZyemVuaSBvIGJlenVob25ub3N0aSAtIERFTU8pIFRqIEVUCkJUIC9GMSAxMiBUZiA2MCA3MTAgVGQgKFVrYXprb3ZhIHByaWxvaGEgayBvZHZvbGFuaSAtIFBldHIgRHZvcmFrKSBUaiBFVApCVCAvRjEgMTIgVGYgNjAgNjkwIFRkIChTb3Vib3Igc2xvdXppIHBvdXplIGsgb3Rlc3RvdmFuaSB6b2JyYXplbmkgcHJpbG9oeS4pIFRqIEVUCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlwZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EgPj4KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDI0MSAwMDAwMCBuIAowMDAwMDAwNTEwIDAwMDAwIG4gCnRyYWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKNTgwCiUlRU9GCg==", date: "2026-09-28T10:00", status: "PENDING" } },
     { id: 3, code: "EMP-003", firstName: "Lucie", lastName: "Horáková", name: "Lucie Horáková", email: "lucie.horakova@carside.cz", phone: "+420 773 345 678", password: "heslo", role: "employee", status: "ACTIVE", canDrive: true, appeal: null },
     { id: 4, code: "MNG-001", firstName: "Martin", lastName: "Kučera", name: "Martin Kučera", email: "martin.kucera@carside.cz", phone: "+420 774 456 789", password: "heslo", role: "manager", status: "ACTIVE", canDrive: true, appeal: null },
     { id: 5, code: "ADM-001", firstName: "Eva", lastName: "Správcová", name: "Eva Správcová", email: "admin@carside.cz", phone: "+420 775 567 890", password: "heslo", role: "admin", status: "ACTIVE", canDrive: true, appeal: null }
@@ -26,8 +33,13 @@ const INITIAL_DATABASE = {
     { id: 12, name: "Hyundai i30", plate: "8KL 3344", type: "Hatchback", location: "Praha — pobočka", stkDate: "2027-01-15", greenCardDate: "2027-01-15", mileage: 38000, notes: "", defects: [] }
   ],
   reservations: [
-    { id: 1, vehicleId: 2, employeeEmail: "jana.novakova@carside.cz", employeeName: "Jana Nováková", start: "2026-10-03T08:00", end: "2026-10-03T17:00", status: "CONFIRMED" },
-    { id: 2, vehicleId: 8, employeeEmail: "petr.dvorak@carside.cz", employeeName: "Petr Dvořák", start: "2026-10-05T08:00", end: "2026-10-09T17:00", status: "PENDING" }
+    { id: 1, vehicleId: 2, employeeEmail: "jana.novakova@carside.cz", employeeName: "Jana Nováková", start: _inHours(-2), end: _inHours(5), status: "CONFIRMED" },
+    { id: 2, vehicleId: 8, employeeEmail: "petr.dvorak@carside.cz", employeeName: "Petr Dvořák", start: _onDay(2, 8), end: _onDay(6, 17), status: "PENDING" },
+    { id: 3, vehicleId: 4, employeeEmail: "lucie.horakova@carside.cz", employeeName: "Lucie Horáková", start: _onDay(1, 9), end: _onDay(1, 15), status: "CONFIRMED" },
+    { id: 4, vehicleId: 6, employeeEmail: "martin.kucera@carside.cz", employeeName: "Martin Kučera", start: _inHours(-1), end: _onDay(1, 12), status: "CONFIRMED" },
+    { id: 5, vehicleId: 1, employeeEmail: "lucie.horakova@carside.cz", employeeName: "Lucie Horáková", start: _onDay(-3, 8), end: _onDay(-3, 17), status: "CONFIRMED" },
+    { id: 6, vehicleId: 7, employeeEmail: "jana.novakova@carside.cz", employeeName: "Jana Nováková", start: _onDay(-1, 8), end: _onDay(-1, 12), status: "REJECTED" },
+    { id: 7, vehicleId: 12, employeeEmail: "lucie.horakova@carside.cz", employeeName: "Lucie Horáková", start: _inHours(3), end: _inHours(6), status: "CONFIRMED" }
   ],
   notifications: [
     { who: "jana.novakova@carside.cz", text: "Rezervace vozidla Škoda Octavia Combi byla automaticky potvrzena.", t: new Date().toISOString() },
@@ -38,7 +50,7 @@ const INITIAL_DATABASE = {
   ],
   nextUserId: 6,
   nextVehicleId: 13,
-  nextResId: 3,
+  nextResId: 8,
   nextDefectId: 102,
   logSeq: 1
-};
+};

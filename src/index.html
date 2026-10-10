@@ -69,10 +69,9 @@
         <!-- Timetable Panel -->
         <div class="panel" style="margin-bottom: 18px;">
           <div class="section-head">
-            <h2>Harmonogram obsazenosti vozidel (7 dní)</h2>
-            <span class="sub" id="timetableRangeText"></span>
+            <h2>Kalendář rezervací</h2>
           </div>
-          <div class="timetable-wrap" id="timetableGrid"></div>
+          <div id="timetableGrid"></div>
         </div>
 
         <!-- New Reservation Panel -->
@@ -81,11 +80,11 @@
             <h2>Nová rezervace</h2>
             <button class="btn line small" onclick="openReportDefectModal()">⚠️ Nahlásit vadu na voze</button>
           </div>
-          <p class="sub">Vyberte vozidlo a termín. Rezervace do 3 dnů se schvaluje automaticky, delší termíny posoudí správce vozového parku.</p>
+          <p class="sub">Vyberte vozidlo a termín (nebo jej označte přímo v kalendáři výše). Rezervace do 3 dnů se schvaluje automaticky, delší termíny posoudí správce vozového parku.</p>
           <form class="formgrid" id="resForm" onsubmit="return submitReservation(event)" style="margin-top:14px">
             <div class="field full">
               <label for="fVehicle">Vozidlo</label>
-              <select id="fVehicle" required></select>
+              <select id="fVehicle" required onchange="onFormVehicleChange()"></select>
             </div>
 
             <div class="field full">
@@ -146,9 +145,9 @@
         <!-- Timetable Panel for Manager -->
         <div class="panel" style="margin-bottom: 18px;">
           <div class="section-head">
-            <h2>Harmonogram obsazenosti vozidel</h2>
+            <h2>Kalendář rezervací</h2>
           </div>
-          <div class="timetable-wrap" id="timetableGridManager"></div>
+          <div id="timetableGridManager"></div>
         </div>
 
         <div class="panel">
@@ -170,11 +169,8 @@
           </div>
 
           <div id="adminRes" class="hidden">
-            <p class="sub" style="margin:0 0 10px">Přímá správa rezervačních záznamů v systému.</p>
-            <table class="atable">
-              <thead><tr><th>Vozidlo</th><th>Zaměstnanec</th><th>Začátek</th><th>Konec</th><th>Stav</th><th>Akce</th></tr></thead>
-              <tbody id="resTable"></tbody>
-            </table>
+            <p class="sub" style="margin:0 0 10px">Správa rezervací rozdělená podle stavu — schvalovat lze jen čekající, potvrzené lze případně zrušit.</p>
+            <div id="resSections"></div>
           </div>
 
           <!-- Tab: STK / Ručení -->
@@ -403,7 +399,7 @@
 
 <!-- MODAL: Detail Odvolání pro Admina -->
 <div id="appealDetailModal" class="cdp-backdrop hidden" onclick="if(event.target===this) closeAppealDetailModal()">
-  <div class="cdp-card auth-card" style="width:460px;">
+  <div class="cdp-card auth-card" style="width:560px;">
     <div class="cdp-head">
       <span class="cdp-title">Detail žádosti o odvolání</span>
       <button type="button" class="cdp-nav" onclick="closeAppealDetailModal()">&times;</button>
@@ -416,11 +412,8 @@
         <p id="adText" style="margin:4px 0 0; white-space:pre-wrap; font-size:12.5px;"></p>
       </div>
       <div>
-        <b>Příloha k žádosti:</b><br>
-        <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
-          <span class="badge confirmed" id="adFile">priloha.pdf</span>
-          <button type="button" class="btn line small" id="adFileBtn">📄 Stáhnout / Zobrazit přílohu</button>
-        </div>
+        <b>Příloha k žádosti:</b>
+        <div id="adFileBox" style="margin-top:6px;"></div>
       </div>
     </div>
     <div class="cdp-actions" style="margin-top:14px; justify-content:flex-end; gap:8px;">
@@ -492,15 +485,17 @@
       <button type="button" class="cdp-nav" onclick="closeAppealModal()">&times;</button>
     </div>
     <div id="appealStatusBox" style="margin-bottom:8px;"></div>
-    <form id="appealForm" onsubmit="return submitAppealForm(event)" style="display:flex; flex-direction:column; gap:12px;">
+    <form id="appealForm" onsubmit="submitAppealForm(event); return false;" style="display:flex; flex-direction:column; gap:12px;">
       <div class="field">
         <label for="apText">Zdůvodnění odvolání / žádosti</label>
         <textarea id="apText" rows="3" required style="border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--paper); font:inherit; font-size:13px;" placeholder="Uveďte důvody pro opětovné schválení řízení..."></textarea>
       </div>
       <div class="field">
         <label for="apFile">Příloha (potvrzení o bezúhonnosti / dokument PDF)</label>
-        <input type="file" id="apFile" style="font-size:12px;">
+        <input type="file" id="apFile" style="font-size:12px;" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx">
+        <span class="sub" style="font-size:11.5px;">Volitelné · PDF nebo obrázek, max. 1 MB.</span>
       </div>
+      <div id="appealMsg" class="formmsg"></div>
       <div class="cdp-actions">
         <button type="button" class="btn line small" onclick="closeAppealModal()">Zavřít</button>
         <button type="submit" class="btn confirm small">Odeslat odvolání</button>
