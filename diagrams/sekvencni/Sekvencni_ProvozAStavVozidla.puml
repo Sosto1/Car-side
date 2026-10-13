@@ -1,5 +1,33 @@
 @startuml
 skinparam defaultFontName "DejaVu Sans"
+
+' ============================================================
+' Diagram: Provoz a stav vozidla
+' ============================================================
+' Ucel:
+'   Zaznameni stavu vozidla pri jeho vraceni, vcetne
+'   automatickeho odectu dat (tachometr, palivo) z pripojeného
+'   vozidla. Zahrnuje volitelne hlaseni poskozeni a navazujici
+'   reseni skody/servisu.
+'
+' Akteri:
+'   - Zamestnanec: zahajuje kontrolu, nahlasi poskozeni
+'   - System: riadi prubeh kontroly, odesila notifikace
+'   - Pripojene vozidlo: automaticky prenasi telemetricka data
+'     (tachometr, stav paliva / baterie)
+'   - Spravce vozoveho parku: probiha reseni skody / servisu
+'
+' Hlavni tok:
+'   1. Zamestnanec zahaji kontrolu stavu pri vraceni vozidla.
+'   2. Pripojene vozidlo automaticky prenese do Systemu aktualni
+'      stav tachometru a paliva (telemetricke data – budouci IoT).
+'   3. Pokud zamestnanec zjisti poskozeni <<extend>>:
+'      a) Zamestnanec nahlasi zavadu nebo poskozeni.
+'      b) System upozorni Spravce vozoveho parku na novou skodu.
+'      c) Spravce zahaji reseni skody nebo servisu <<include>>.
+'   4. System potvrdí Zamestnanci uspesne ukonceni kontroly.
+' ============================================================
+
 title Provoz a stav vozidla
 
 actor "Zaměstnanec" as Emp
@@ -7,18 +35,34 @@ participant "Systém" as Sys
 participant "Připojené vozidlo" as Vehicle
 actor "Správce vozového parku" as Manager
 
+' KROK 1: Zamestnanec zahaji kontrolu stavu pri vraceni vozidla
 Emp -> Sys: Kontrola stavu při vrácení vozidla
 activate Sys
+
+' KROK 2: Pripojene vozidlo automaticky prenasi telemetricka data
+'   (budouci integrace: OBD-II / GPS jednotka)
 Vehicle -> Sys: Automatický přenos stavu tachometru a paliva
 
-opt Zjištěno poškození (<<extend>>)
+' KROK 3 (<<extend>>): Volitelna vetev – pokud bylo zjisteno poskozeni
+opt Zjištěno poškození <<extend>>
+
+    ' KROK 3a: Zamestnanec nahlasi zavadu nebo poskozeni
     Emp -> Sys: Hlášení závady nebo poškození vozidla
+
+    ' KROK 3b: System notifikuje spravce o nove skode / zavade
     Sys -> Manager: Notifikace o nové škodě / závadě
     activate Manager
-    Manager -> Sys: Řešení škody / servisu (<<include>>)
+
+    ' KROK 3c (<<include>>): Spravce zahaji reseni – povinne nasleduje
+    '   po hlaseni zavady (include)
+    Manager -> Sys: Řešení škody / servisu <<include>>
     deactivate Manager
+
 end
 
+' KROK 4: System potvrdí zamestanci uspesne ukonceni kontroly
 Sys -> Emp: Potvrzení o ukončení kontroly
 deactivate Sys
+
 @enduml
+

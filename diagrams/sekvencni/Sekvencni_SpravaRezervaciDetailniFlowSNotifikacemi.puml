@@ -1,29 +1,94 @@
 @startuml
 skinparam defaultFontName "DejaVu Sans"
-title Správa rezervací
+
+' ============================================================
+' Diagram: Sprava rezervaci (Detailni flow s notifikacemi)
+' ============================================================
+' Ucel:
+'   Detailni rezervacni process zahrnujici stavovy automat
+'   rezervace (DRAFT -> PENDING -> APPROVED) a emailove
+'   notifikace jako volitelne rozsireni (<<extend>>).
+'
+' Akteri:
+'   - Zamestnanec: vytvori rezervaci, prijima potvrzeni emailem
+'   - System: riadi stavovy automat rezervace, orchestruje notifikace
+'   - Notifikacni sluzba (externi hranice): odesila emaily
+'   - Spravce vozoveho parku: schvaluje rezervaci
+'
+' Hlavni tok:
+'   1. Zamestnanec vytvori rezervaci (vychozi stav: DRAFT).
+'   2. System zkontroluje dostupnost vozidla <<include>>
+'      – kontrola casoveho prekryvu aktivnich rezervaci.
+'   3. System overi zpusobilost uzivatele <<include>>
+'      – napr. 1 rok bez nehody, platnost ridicakskeho opravneni.
+'   4. System zmeni stav rezervace: DRAFT -> PENDING.
+'   5. [Volitelne <<extend>>] System odesle pres Notifikacni sluzbu
+'      emailove upozorneni Spravci vozoveho parku o nove rezervaci.
+'   6. Spravce schvali rezervaci.
+'   7. System zmeni stav rezervace na APPROVED.
+'   8. [Volitelne <<extend>>] System odesle pres Notifikacni sluzbu
+'      informacni email Zamestnanci o schvaleni rezervace.
+'
+' Stavovy automat rezervace:
+'   DRAFT -> PENDING -> APPROVED
+'                    -> REJECTED (v pripade zamitinuti spravcem)
+' ============================================================
+
+title Správa rezervací – Detailní flow s notifikacemi
 
 actor "Zaměstnanec" as Emp
 participant "Systém" as Sys
 participant "Notifikační služba" as Mail
 actor "Správce vozového parku" as Manager
 
+' KROK 1: Zamestnanec vytvori rezervaci – vychozi stav je DRAFT
 Emp -> Sys: Vytvoření rezervace (Stav: DRAFT)
 activate Sys
-Sys -> Sys: Kontrola dostupnosti vozidla (<<include>>)
-Sys -> Sys: Ověření způsobilosti (1 rok bez nehody) (<<include>>)
+
+' KROK 2 (<<include>>): Povinne overeni dostupnosti vozidla
+'   – System kontroluje, zda se nezadany termin neprekryva
+'     s jinou aktivni rezervaci stejneho vozidla.
+Sys -> Sys: Kontrola dostupnosti vozidla <<include>>
+
+' KROK 3 (<<include>>): Povinne overeni zpusobilosti uzivatele
+'   – napr. pravidlo "1 rok bez nehody", platny ridicaksky prukaz,
+'     priznak canDrive == true
+Sys -> Sys: Ověření způsobilosti (1 rok bez nehody) <<include>>
+
+' KROK 4: System provede prechod stavu: DRAFT -> PENDING
 Sys -> Sys: Změna stavu (DRAFT -> PENDING)
 
-opt Nastavení emailových notifikací (<<extend>>)
+' KROK 5 (<<extend>>): Volitelna emailova notifikace spravce
+'   – odesle se pouze pokud je notifikacni sluzba nakonfigurovana
+opt Nastavení emailových notifikací <<extend>>
+
+    ' System pozada notifikacni sluzbu o odeslani emailu spravci
     Sys -> Mail: Odeslání emailového oznámení o změně stavu
+
+    ' Notifikacni sluzba dorucí email spravci s informaci o cekajici rezervaci
     Mail -> Manager: Upozornění na novou rezervaci
+
 end
 
+' KROK 6: Spravce manualne schvali rezervaci po posouzeni zadosti
 Manager -> Sys: Schválení rezervace
+
+' KROK 7: System provede prechod stavu: PENDING -> APPROVED
 Sys -> Sys: Změna stavu na APPROVED
 
-opt Nastavení emailových notifikací (<<extend>>)
+' KROK 8 (<<extend>>): Volitelna emailova notifikace zamestnance
+'   – odesle se pouze pokud je notifikacni sluzba nakonfigurovana
+opt Nastavení emailových notifikací <<extend>>
+
+    ' System pozada notifikacni sluzbu o odeslani emailu zamestnanci
     Sys -> Mail: Odeslání emailového oznámení o schválení
+
+    ' Notifikacni sluzba dorucí zamestanci informaci o schvaleni rezervace
     Mail -> Emp: Informace o schválení rezervace
+
 end
+
 deactivate Sys
+
 @enduml
+

@@ -1,16 +1,63 @@
 @startuml
 skinparam defaultFontName "DejaVu Sans"
+
+' ============================================================
+' Diagram: Sprava uzivatelu a pristupu
+' ============================================================
+' Ucel:
+'   Proces vytvoreni noveho uzivatelskeho uctu a prideleni role
+'   administratorem. Zahrnuje povinne overeni identity admina
+'   pred zpristupnenim nastaveni noveho uctu.
+'
+' Akteri:
+'   - Administrátor: iniciuje tvorbu uctu, overi identitu,
+'     prideli roli novemu uzivateli
+'   - System: vyzaduje overeni identity (<<include>>), zpristupni
+'     konfiguraci uctu, potvrdí ulozeni
+'
+' Hlavni tok:
+'   1. Administrátor iniciuje vytvoreni noveho uzivatelskeho uctu.
+'   2. System pozada o overeni identity administratora <<include>>
+'      – povinny krok pred jakoukoli spravou uctu.
+'   3. Administrátor overi svou identitu (napr. prihlaseni nebo token).
+'   4. System zpristupni moznosti nastaveni noveho uctu
+'      (jmeno, email, heslo, kontaktni udaje).
+'   5. Administrátor priradi uzivateli prislusnou roli:
+'      - "employee" (Zamestnanec)
+'      - "manager"  (Spravce vozoveho parku)
+'   6. System potvrdí uspesne vytvoreni uctu a ulozeni
+'      pridelene role.
+' ============================================================
+
 title Správa uživatelů a přístupů
 
 actor "Administrátor" as Admin
 participant "Systém" as Sys
 
+' KROK 1: Administrator iniciuje vytvoreni noveho uzivatelskeho uctu
 Admin -> Sys: Vytvoření uživatelského účtu
 activate Sys
-Sys -> Admin: Požadavek na ověření identity administrátora (<<include>>)
-Admin -> Sys: Ověření identity (přihlášení/token)
+
+' KROK 2 (<<include>>): System povinne pozada o overeni identity admina
+'   pred zpristupnenim spravnich operaci (bezpecnostni mechanismus)
+Sys -> Admin: Požadavek na ověření identity administrátora <<include>>
+
+' KROK 3: Administrator poskyti prihlasovacie udaje nebo token
+Admin -> Sys: Ověření identity (přihlášení / token)
+
+' KROK 4: Po uspesne autentizaci System zpristupni konfiguraci uctu
+'   (formular pro zadani jmena, emailu, hesla a kontaktni udaju)
 Sys -> Admin: Možnost nastavení účtu
+
+' KROK 5: Administrator priradi uzivateli prislusnou roli
+'   - "employee" = Zamestnanec (rezervace aut, hlaseni vad)
+'   - "manager"  = Spravce vozoveho parku (schvalovani, sprava flotily)
 Admin -> Sys: Přiřazení role (Zaměstnanec / Manažer)
+
+' KROK 6: System potvrdí uspesne ulozeni uctu a pridelene role
+'   (novy uzivatel je aktivni a muze se prihlasit)
 Sys -> Admin: Potvrzení o vytvoření účtu a přiřazení role
 deactivate Sys
+
 @enduml
+

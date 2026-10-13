@@ -1,22 +1,75 @@
 @startuml
 skinparam defaultFontName "DejaVu Sans"
+
+' ============================================================
+' Diagram: Sprava ridicskych opravneni
+' ============================================================
+' Ucel:
+'   Evidence a kontrola platnosti ridicskych prukazu zamestnancu.
+'   Zahrnuje nahrani prukazu, jeho schvaleni spravcem a automatickou
+'   kontrolu bliziciho se konce platnosti.
+'
+' Akteri:
+'   - Zamestnanec: nahraje ridicaksky prukaz, prijima notifikace
+'   - System: provadi kontroly platnosti, notifikuje spravce
+'   - Spravce vozoveho parku (Admin): schvaluje prukazy,
+'     nastavuje priznak canDrive na uzivatelskem uctu
+'
+' Hlavni tok:
+'   1. Zamestnanec nahraje do systemu svuj ridicaksky prukaz.
+'   2. System provede prvotni kontrolu platnosti opravneni <<include>>.
+'   3. System upozorni Spravce vozoveho parku na novy prukaz
+'      cekajici na schvaleni.
+'   4. Spravce prukaz schvali (proces obsahuje opatovnou
+'      kontrolu <<include>>) – nasledne nastavi canDrive = true.
+'   5. System informuje Zamestnance o uspesnem schvaleni.
+'   --- Automaticka kontrola systemu ---
+'   6. System prubezne detekuje blizici se konec platnosti prukazu.
+'   7. Pri zjisteni konci platnosti System automaticky upozorni
+'      Zamestnance <<include>> (spolecne s kontrolou platnosti).
+' ============================================================
+
 title Správa řidičských oprávnění
 
 actor "Zaměstnanec" as Emp
 participant "Systém" as Sys
 actor "Správce vozového parku" as Admin
 
+' KROK 1: Zamestnanec nahraje svuj ridicaksky prukaz do systemu
 Emp -> Sys: Nahrání řidičského průkazu
 activate Sys
-Sys -> Sys: Kontrola platnosti řidičského oprávnění (<<include>>)
+
+' KROK 2 (<<include>>): System povinne provede prvotni kontrolu
+'   platnosti ridicakskeho opravneni (datum expirace, format dat)
+Sys -> Sys: Kontrola platnosti řidičského oprávnění <<include>>
+
+' KROK 3: System notifikuje spravce o novem prukazu ke schvaleni
+'   (napr. push notifikace nebo email do schvalovaciho frontendu)
 Sys -> Admin: Upozornění na nový průkaz ke schválení
 activate Admin
-Admin -> Sys: Schválení řidičského oprávnění (<<include>> kontrola)
+
+' KROK 4 (<<include>>): Spravce prukaz schvali – tento krok povinne
+'   obsahuje opatovnou validacni kontrolu platnosti <<include>>
+'   (prevence schvaleni jiz proslych dokladu)
+Admin -> Sys: Schválení řidičského oprávnění <<include>> (kontrola)
 deactivate Admin
+
+' KROK 5: System potvrdi zamestanci uspesne schvaleni prukazu
+'   (nastaveni canDrive = true na uzivatelskem uctu)
 Sys -> Emp: Průkaz byl schválen
 deactivate Sys
 
+' --- Oddeleni pro automaticke pravidelne kontroly ---
 == Automatická kontrola systému ==
+
+' KROK 6: System periodicky detekuje prukazy s blizicim se koncem platnosti
+'   (napr. denni batch job s vyzevou 30 / 14 / 7 dni pred exspiraci)
 Sys -> Sys: Detekce blížícího se konce platnosti
-Sys -> Emp: Upozornění na blížící se konec platnosti (<<include>> kontrola)
+
+' KROK 7 (<<include>>): Pri zjisteni konci platnosti System automaticky
+'   zasle upozorneni zamestnanci – operace <<include>> znova provadi
+'   kontrolu platnosti jako soucást upozorneni
+Sys -> Emp: Upozornění na blížící se konec platnosti <<include>> (kontrola)
+
 @enduml
+

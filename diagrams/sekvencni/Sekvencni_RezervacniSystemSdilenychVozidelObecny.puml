@@ -1,18 +1,59 @@
 @startuml
 skinparam defaultFontName "DejaVu Sans"
+
+' ============================================================
+' Diagram: Rezervacni system sdilenych vozidel (Obecny)
+' ============================================================
+' Ucel:
+'   Zakladni, zjednoduseny proces vytvoreni a schvaleni rezervace
+'   vozidla. Zachycuje klicovy tok od zadosti zamestnance az po
+'   vysledek schvalovaciho rozhodnutí spravce.
+'
+' Akteri:
+'   - Zamestnanec: iniciuje rezervaci, prijima vysledek
+'   - System: validuje dostupnost vozidla, zprostredkovava
+'     schvalovaci process
+'   - Spravce vozoveho parku: schvaluje nebo zamita pozadavek
+'
+' Hlavni tok:
+'   1. Zamestnanec vytvori pozadavek na rezervaci vozidla.
+'   2. System provede kontrolu dostupnosti vybranaho vozidla
+'      v pozadovanem terminu <<include>> – povinny krok.
+'   3. System preda pozadavek Spravci vozoveho parku ke schvaleni.
+'   4. Spravce rezervaci bud schvali, nebo zamitne.
+'   5. System informuje Zamestnance o vysledku schvalovaciho procesu.
+'
+' Poznamka:
+'   Tento diagram je obecnym (zjednodusenim) pohledem.
+'   Podrobny tok vcetne stavu rezervace a emailovych notifikaci
+'   viz diagram "Sprava rezervaci (Detailni flow s notifikacemi)".
+' ============================================================
+
 title Rezervační systém sdílených vozidel (Obecný)
 
 actor "Zaměstnanec" as Emp
 participant "Systém" as Sys
 actor "Správce vozového parku" as Manager
 
+' KROK 1: Zamestnanec vytvori pozadavek na rezervaci vozidla
 Emp -> Sys: Vytvoření rezervace
 activate Sys
-Sys -> Sys: Kontrola dostupnosti vozidla (<<include>>)
+
+' KROK 2 (<<include>>): System povinne overi dostupnost vozidla
+'   v pozadovanem terminu (kontrola prekryvu aktivnich rezervaci)
+Sys -> Sys: Kontrola dostupnosti vozidla <<include>>
+
+' KROK 3: System preda pozadavek spravci ke schvaleni
 Sys -> Manager: Požadavek na schválení rezervace
 activate Manager
+
+' KROK 4: Spravce se rozhodne – schvali nebo zamitne rezervaci
 Manager -> Sys: Schvalování / Zamítání rezervací
 deactivate Manager
+
+' KROK 5: System informuje zamestnance o vysledku
 Sys -> Emp: Informace o výsledku schválení
 deactivate Sys
+
 @enduml
+

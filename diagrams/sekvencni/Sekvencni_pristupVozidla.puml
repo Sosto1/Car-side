@@ -1,21 +1,60 @@
 @startuml
 skinparam defaultFontName "DejaVu Sans"
+
+' ============================================================
+' Diagram: Digitalni pristup k vozidlu
+' ============================================================
+' Ucel:
+'   Nahlaseni ztraty pristupoveho zarizeni (digitalni klic /
+'   fyzicky klic) a sprava blokace pristupe k vozidlu.
+'
+' Akteri:
+'   - Zamestnanec: nahlasi ztratu, prijima potvrzeni / obnovu
+'   - System: odesila notifikace, potvrzuje operace
+'   - Spravce vozoveho parku: provadi blokaci a naslednou obnovu
+'
+' Hlavni tok:
+'   1. Zamestnanec nahlasi ztratu zarizeni nebo klice.
+'   2. System automaticky zasle notifikaci a pozadavek na blokaci
+'      Spravci vozoveho parku <<include>>.
+'   3. Spravce provede blokaci pristupu k vozidlu v Systemu.
+'   4. System potvrdí Zamestnanci prijeti hlaseni a uspesnou blokaci.
+'   --- Pozdejsi akce ---
+'   5. Spravce muze v Systemu pristup k vozidlu znovu obnovit.
+'   6. System informuje Zamestnance o obnoveni pristupu.
+' ============================================================
+
 title Digitální přístup k vozidlu
 
 actor "Zaměstnanec" as Emp
 participant "Systém" as Sys
 actor "Správce vozového parku" as Admin
 
+' KROK 1: Zamestnanec nahlasi ztratu zarizeni nebo klice
 Emp -> Sys: Hlášení ztráty zařízení / klíče
 activate Sys
-Sys -> Admin: Notifikace o ztrátě / Požadavek na blokaci (<<include>>)
+
+' KROK 2 (<<include>>): System automaticky notifikuje spravce
+'   a zadouc o provedeni blokace – tato vazba je povinna (include)
+Sys -> Admin: Notifikace o ztrátě / Požadavek na blokaci <<include>>
 activate Admin
+
+' KROK 3: Spravce provede blokaci pristupu v systemu
 Admin -> Sys: Blokace přístupu k vozidlu
 deactivate Admin
+
+' KROK 4: System potvrdí zamestnanci uspesnou blokaci
 Sys -> Emp: Potvrzení o přijetí hlášení a blokaci
 deactivate Sys
 
-== Pozdější akce ==
+' --- Oddeleni pro pozdejsi akci obnovy pristupu ---
+== Pozdější akce – obnovení přístupu ==
+
+' KROK 5: Spravce rozhodne o obnoveni pristupu (napr. po nalezeni klice)
 Admin -> Sys: Obnovení přístupu k vozidlu
+
+' KROK 6: System informuje zamestnance, ze pristup byl obnoven
 Sys -> Emp: Informace o obnovení přístupu
+
 @enduml
+

@@ -1,15 +1,50 @@
 @startuml
 skinparam defaultFontName "DejaVu Sans"
+
+' ============================================================
+' Diagram: Historie a audit
+' ============================================================
+' Ucel:
+'   Zobrazeni historie jizd a auditnich zaznamu s moznosti
+'   filtrovani dle ridice, vozidla nebo casoveho obdobi.
+'
+' Akteri:
+'   - Spravce vozoveho parku: initiuje pozadavek, zadava filtry
+'   - System: aplikuje filtry, pocita kilometry, vraci vysledky
+'
+' Hlavni tok:
+'   1. Spravce odesle pozadavek na prohledavani historie jizd.
+'   2. Spravce muze volitelne zadat filtry <<extend>>:
+'      - Dle ridice (email / jmeno)
+'      - Dle vozidla (SPZ / ID)
+'      - Dle casoveho obdobi (od – do)
+'   3. System aplikuje filtry na ulozena data.
+'   4. System zpracuje a vypocita najete kilometry <<extend>>.
+'   5. System zobrazi vyslednou filtrovaneho historii a kilometry
+'      spravci.
+' ============================================================
+
 title Historie a audit
 
 actor "Správce vozového parku" as Manager
 participant "Systém" as Sys
 
+' KROK 1: Spravce iniciuje prohlizeni historie
 Manager -> Sys: Požadavek na prohlížení historie jízd
 activate Sys
-Manager -> Sys: Zvolení filtrů (řidič, vozidlo, období) (<<extend>>)
+
+' KROK 2 (<<extend>>): Volitelne filtrovani – ridic, vozidlo, obdobi
+Manager -> Sys: Zvolení filtrů (řidič, vozidlo, období) <<extend>>
+
+' KROK 3: System aplikuje zadane filtry na databazi zaznamu
 Sys -> Sys: Aplikace filtrů na data
-Sys -> Sys: Zpracování najetých kilometrů (<<extend>>)
+
+' KROK 4 (<<extend>>): System vypocita najete kilometry z filtrovanych dat
+Sys -> Sys: Zpracování najetých kilometrů <<extend>>
+
+' KROK 5: System vraci vysledky spravci
 Sys -> Manager: Zobrazení filtrované historie jízd a kilometrů
 deactivate Sys
+
 @enduml
+

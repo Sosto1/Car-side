@@ -1,0 +1,116 @@
+@startuml
+skinparam defaultFontName "DejaVu Sans"
+title Diagram tříd - Rezervační systém Car-side
+
+' Výčtové typy pro stavy a role
+enum RoleUzivatele {
+  EMPLOYEE
+  MANAGER
+  ADMIN
+}
+
+enum StavUzivatele {
+  ACTIVE
+}
+
+enum StavRezervace {
+  CONFIRMED
+  PENDING
+  REJECTED
+}
+
+enum StavVady {
+  OPEN
+  RESOLVED
+}
+
+enum StavOdvolani {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+' Entity reprezentující databázi (mock-data.js)
+class Databaze <<Singleton>> {
+  +adminTab: String
+  +users: List<Uzivatel>
+  +vehicles: List<Vozidlo>
+  +reservations: List<Rezervace>
+  +notifications: List<Notifikace>
+  +log: List<LogZaznam>
+  +nextUserId: int
+  +nextVehicleId: int
+  +nextResId: int
+  +nextDefectId: int
+  +logSeq: int
+  +loadDb(): Databaze
+  +saveDb(): void
+  +resetDemo(): void
+}
+
+class Uzivatel {
+  +id: int
+  +code: String
+  +firstName: String
+  +lastName: String
+  +name: String
+  +email: String
+  +phone: String
+  +password: String
+  +role: RoleUzivatele
+  +status: StavUzivatele
+  +canDrive: boolean
+  +appeal: Odvolani
+}
+
+class Odvolani {
+  +text: String
+  +file: String
+  +date: Date
+  +status: StavOdvolani
+}
+
+class Vozidlo {
+  +id: int
+  +name: String
+  +plate: String
+  +type: String
+  +location: String
+  +stkDate: Date
+  +greenCardDate: Date
+  +mileage: int
+  +notes: String
+  +defects: List<Vada>
+}
+
+class Vada {
+  +id: int
+  +reporterEmail: String
+  +text: String
+  +date: Date
+  +status: StavVady
+}
+
+class Rezervace {
+  +id: int
+  +vehicleId: int
+  +employeeEmail: String
+  +employeeName: String
+  +start: Date
+  +end: Date
+  +status: StavRezervace
+}
+
+class Notifikace {
+  +who: String
+  +text: String
+  +t: Date
+}
+
+class LogZaznam {
+  +n: int
+  +actor: String
+  +text: String
+}
+
+' Hlavní třídy pro log
