@@ -27,7 +27,8 @@ Dokumentace projektu je rozdělena do strukturovaných souborů podle standardů
   - Detailní analýza zavedení elektromobilů s ohledem na kapacitu baterie a čas na dobíjení.
 - **UML Diagramy**:
   - [Dokumentace Use Case diagramů](diagrams/usecase-diagram/usecase_dokumentace.md)
-  - [Dokumentace Sekvenčních diagramů](diagrams/sekvencni/sekvencni_dokumentace.md)
+  - [Dokumentace Sekvenčních diagramů](diagrams/sekvencni_tridy/sekvencni_dokumentace.md) – zpřesněné sekvenční diagramy s objekty tříd (SD01–SD08, [PDF](diagrams/sekvencni_tridy/Sekvencni_diagramy.pdf))
+  - [Původní sekvenční diagramy](diagrams/sekvencni/sekvencni_dokumentace.md) (bez tříd, obecný „Systém“)
   - [Aktivitní diagramy](diagrams/aktivitni/) (Schvalování, převzetí vozu, správa účtů a vozidel)
   - [Třídní diagram](diagrams/tridni/pokus.puml)
 
@@ -133,7 +134,8 @@ Car-side/
 │   └── future-pressure.txt             # Detailní rozbor budoucího tlaku (elektromobily)
 ├── diagrams/                           # UML diagramy a jejich dokumentace
 │   ├── usecase-diagram/                # Případy užití (Use Case diagramy a dokumentace)
-│   ├── sekvencni/                      # Sekvenční diagramy klíčových procesů
+│   ├── sekvencni/                      # Původní sekvenční diagramy (bez tříd)
+│   ├── sekvencni_tridy/                # Sekvenční diagramy s objekty tříd (puml, png, svg, pdf)
 │   ├── aktivitni/                      # Aktivitní diagramy schvalování, převzetí a správy
 │   └── tridni/                         # Diagram tříd doménového modelu
 ├── src/                                # Zdrojový kód aplikace

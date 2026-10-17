@@ -1,0 +1,86 @@
+@startuml SD04_UpravaZruseniRezervace
+' ============================================================
+' SD04 – Úprava a zrušení rezervace
+' Use case: Rezervace – „Upravit rezervaci“, „Zrušit rezervaci“
+' Třídy: Databaze, Rezervace, Uzivatel, NotifikacniSluzba
+' Pravidla:
+'   - zaměstnanec smí měnit / rušit jen vlastní rezervaci,
+'     správce jakoukoliv
+'   - nový termín musí projít kontrolou dostupnosti (SD02)
+'   - po změně na > 3 dny jde rezervace znovu ke schválení
+'   - zrušení: stav CANCELLED, termín se uvolní
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam BoundaryBackgroundColor #FFFFFF
+skinparam BoundaryBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam SequenceReferenceBackgroundColor #F3F3F3
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD04 – Úprava a zrušení rezervace
+
+actor "Zaměstnanec /\nSprávce" as Z
+participant "__:Databaze__" as DB
+participant "__r:Rezervace__" as R
+participant "__u:Uzivatel__" as U
+boundary "__:NotifikacniSluzba__\n«IS e-mail»" as NS
+
+Z -> DB : najdiRezervace(u) : List<Rezervace>
+activate DB
+DB --> Z : rezervace
+deactivate DB
+note over Z : uživatel vybere\nrezervaci r
+
+Z -> R : muzeMenit(u) : boolean
+activate R
+R -> U : jeSpravce() : boolean
+activate U
+U --> R : spravce
+deactivate U
+R --> Z : smi  (r.ridic = u  OR  spravce)
+deactivate R
+
+break smi = false
+  Z <-- R : chyba – cizí rezervaci nelze měnit
+end
+
+alt akce = upravit termín
+  Z -> R : zmenitTermin(noveOd, noveDo)
+  activate R
+  R -> R : jeTerminPlatny() : boolean
+  ref over R, DB : SD02 – Kontrola dostupnosti\njeDostupne(r.vozidlo, r.ridic, noveOd, noveDo) : kolize
+  alt kolize = ZADNA
+    R -> R : od := noveOd, do := noveDo
+    R -> R : delkaDni() : float
+    opt délka > 3 dny
+      R -> R : stav := PENDING
+      note right of R : nutné nové\nschválení (SD03)
+    end
+    R -> DB : ulozRezervaci(r)
+    R -> NS : odeslat(r.ridic.email, "Rezervace změněna")
+    R --> Z : upraveno
+  else kolize <> ZADNA
+    R --> Z : chyba – nový termín je obsazen
+  end
+  deactivate R
+else akce = zrušit
+  Z -> R : zrusit()
+  activate R
+  R -> R : stav := CANCELLED
+  note right of R : termín vozidla\nje uvolněn
+  R -> DB : ulozRezervaci(r)
+  R -> NS : odeslat(r.ridic.email, "Rezervace zrušena")
+  R --> Z : zrušeno
+  deactivate R
+end
+
+@enduml

@@ -1,0 +1,79 @@
+@startuml SD06_NahlaseniVady
+' ============================================================
+' SD06 – Nahlášení a vyřešení vady vozidla
+' Use case: Provoz vozidla – „Nahlásit závadu / poškození“
+'           «include» Řešení škody / servisu (správce)
+' Třídy: Vozidlo, Vada, Databaze, NotifikacniSluzba
+' Stavy vady: OPEN -> RESOLVED
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam BoundaryBackgroundColor #FFFFFF
+skinparam BoundaryBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam SequenceReferenceBackgroundColor #F3F3F3
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD06 – Nahlášení a vyřešení vady vozidla
+
+actor "Zaměstnanec" as Z
+participant "__v:Vozidlo__" as V
+participant "__d:Vada__" as D
+participant "__:Databaze__" as DB
+boundary "__:NotifikacniSluzba__\n«IS e-mail»" as NS
+actor "Správce\nvozového parku" as S
+
+== Nahlášení vady (zaměstnanec) ==
+
+Z -> V : nahlasVadu(popis, u)
+activate V
+create D
+V -> D : «create» Vada(popis, u.email)
+note right of D : stav = OPEN
+V -> V : pridejVadu(d)
+V -> DB : ulozVozidlo(v)
+V -> DB : najdiUzivatele(MANAGER) : List<Uzivatel>
+activate DB
+DB --> V : spravci
+deactivate DB
+loop pro každého správce s ze seznamu spravci
+  V -> NS : odeslat(s.email, "Nahlášena nová vada vozidla")
+  activate NS
+  NS -> S : e-mail: nová vada
+  deactivate NS
+end
+V --> Z : vada nahlášena
+deactivate V
+
+== Vyřešení vady (správce) ==
+
+S -> V : getOtevreneVady() : List<Vada>
+activate V
+V --> S : vady
+deactivate V
+note over S : správce zajistí opravu\n/ servis a vybere vadu d
+
+S -> D : vyresit()
+activate D
+D -> D : stav := RESOLVED
+D --> S : vyřešeno
+deactivate D
+
+S -> V : maOtevreneVady() : boolean
+activate V
+V --> S : vady
+opt vady = false
+  V -> V : nastavStav(DOSTUPNE)
+end
+V -> DB : ulozVozidlo(v)
+deactivate V
+
+@enduml
