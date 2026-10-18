@@ -1,0 +1,161 @@
+@startuml TD02_RoleRozhrani
+' ============================================================
+' TD02 – Role, rozhraní a rozšíření (návrhový třídní diagram)
+' Postup z přednášky „Roles, Types and Interfaces“:
+'   - objekt vystupuje vůči partnerovi v určité ROLI
+'   - roli popisuje ROZHRANÍ (typ), třída je jeho IMPLEMENTACE
+' Navíc:
+'   - porty a adaptéry hexagonální architektury (ADR-01, ADR-04)
+'   - generalizace ElektrickeVozidlo (ADR-05, Future Pressure C)
+'   - závislosti «instantiate» a «use»
+' Členy doménových tříd jsou v TD01, zde se neopakují.
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #222222
+skinparam ClassBackgroundColor #FFFFFF
+skinparam ClassBorderColor #222222
+skinparam ClassHeaderBackgroundColor #F3F3F3
+skinparam StereotypeFontSize 11
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+skinparam nodesep 40
+skinparam ranksep 55
+hide circle
+hide empty members
+
+title TD02 – Role, rozhraní a rozšíření
+
+' ---------------- Doménové třídy (detail v TD01) ----------------
+class Rezervace
+class Uzivatel
+class Vozidlo
+class Vada
+class Odvolani
+
+' ---------------- Role (rozhraní) ----------------
+interface Ridic <<interface>> {
+  + muzeRidit() : boolean
+  + getEmail() : String
+}
+
+interface RezervovatelneVozidlo <<interface>> {
+  + maPlatnouSTK(datum : Date) : boolean
+  + zapisStav(km : int, palivo : int)
+  + nastavStav(stav : StavVozidla)
+  + maOtevreneVady() : boolean
+}
+
+interface ServisovaneVozidlo <<interface>> {
+  + nahlasVadu(popis : String, u : Uzivatel)
+  + getOtevreneVady() : List<Vada>
+  + maOtevreneVady() : boolean
+}
+
+' ---------------- Generalizace (Future Pressure C) ----------------
+class ElektrickeVozidlo {
+  - kapacitaBaterieKWh : int
+  - stavNabiti : int
+  - {static} MIN_NABITI : int = 20
+  - dobaNabijeniMin : int
+  --
+  + zapisStav(km : int, nabiti : int)
+  + maDostatekNabiti() : boolean
+  + casNaDobiti() : int
+}
+
+' ---------------- Porty a adaptéry ----------------
+interface Databaze <<interface>> {
+  + najdiVozidlo(id : int) : Vozidlo
+  + najdiAktivniRezervace() : List<Rezervace>
+  + najdiRezervace(...) : List<Rezervace>
+  + najdiUzivatele(...) : List<Uzivatel>
+  + existujeEmail(email : String) : boolean
+  + ulozRezervaci(r : Rezervace)
+  + ulozUzivatele(u : Uzivatel)
+  + ulozVozidlo(v : Vozidlo)
+}
+
+class InMemoryDatabaze {
+  - uzivatele : Map<int, Uzivatel>
+  - vozidla : Map<int, Vozidlo>
+  - rezervace : Map<int, Rezervace>
+  - dalsiId : int
+}
+
+class SqlDatabaze <<future>> {
+  - pripojeni : Connection
+}
+
+interface NotifikacniSluzba <<interface>> {
+  + odeslat(prijemce : String, zprava : String)
+}
+
+class EmailNotifikace <<boundary>> {
+  - smtpServer : String
+  + odeslat(prijemce : String, zprava : String)
+}
+
+class MockNotifikace {
+  - odeslane : List<String>
+  + odeslat(prijemce : String, zprava : String)
+}
+
+' ---------------- Vztahy ----------------
+' (pořadí v zápisu určuje rozložení: rozhraní nahoře, implementace pod ním)
+
+' role: Rezervace vidí uživatele jen jako řidiče a vozidlo jen jako rezervovatelné
+Rezervace "0..*" --> "1\nridic" Ridic
+Rezervace "0..*" --> "1\nvozidlo" RezervovatelneVozidlo
+
+Ridic <|.. Uzivatel
+RezervovatelneVozidlo <|.. Vozidlo
+ServisovaneVozidlo <|.. Vozidlo
+
+Vozidlo <|-- ElektrickeVozidlo
+
+' vznik objektů
+Vozidlo ..> Vada : <<instantiate>>
+Uzivatel ..> Odvolani : <<instantiate>>
+
+' porty
+Rezervace ..> Databaze : <<use>>
+Rezervace ..> NotifikacniSluzba : <<use>>
+Vozidlo ..> NotifikacniSluzba : <<use>>
+Uzivatel ..> NotifikacniSluzba : <<use>>
+
+Databaze <|.. InMemoryDatabaze
+Databaze <|.. SqlDatabaze
+NotifikacniSluzba <|.. EmailNotifikace
+NotifikacniSluzba <|.. MockNotifikace
+
+note right of ElektrickeVozidlo
+  ADR-05: elektromobil přidává pravidlo
+  min. 20 % nabití při převzetí a čas
+  na dobití před další rezervací.
+  Rezervace s ním pracuje stejně přes
+  roli RezervovatelneVozidlo.
+end note
+
+note bottom of EmailNotifikace
+  Adaptér na externí IS e-mailové
+  služby (SMTP). Fire-and-forget –
+  chyba odeslání neblokuje uložení
+  rezervace (ADR-04).
+end note
+
+note bottom of MockNotifikace
+  Použito ve walking skeletonu
+  a v testech (CP1).
+end note
+
+note bottom of InMemoryDatabaze
+  CP1–CP4: paměť / localStorage
+end note
+
+note bottom of SqlDatabaze
+  CP5: PostgreSQL
+end note
+
+@enduml

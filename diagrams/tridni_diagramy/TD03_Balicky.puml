@@ -1,0 +1,98 @@
+@startuml TD03_Balicky
+' ============================================================
+' TD03 – Balíčkový diagram (organizace tříd)
+' Doménové jádro je rozdělené podle odpovědností, porty jsou
+' součástí jádra a adaptéry leží vně (hexagonální architektura).
+' Šipky «import» = balíček používá třídy jiného balíčku.
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #222222
+skinparam ClassBackgroundColor #FFFFFF
+skinparam ClassBorderColor #222222
+skinparam ClassHeaderBackgroundColor #F3F3F3
+skinparam PackageBackgroundColor #FFFFFF
+skinparam PackageBorderColor #222222
+skinparam StereotypeFontSize 11
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+skinparam packageStyle folder
+skinparam nodesep 30
+skinparam ranksep 40
+hide circle
+hide members
+
+title TD03 – Balíčkový diagram systému Car-side
+
+package "cz.carside.domena" as domena {
+
+  package "cz.carside.domena.rezervace" as rez {
+    class Rezervace
+    enum StavRezervace <<enumeration>>
+    enum Kolize <<enumeration>>
+  }
+
+  package "cz.carside.domena.vozidla" as voz {
+    class Vozidlo
+    class ElektrickeVozidlo
+    class Vada
+    interface RezervovatelneVozidlo <<interface>>
+    interface ServisovaneVozidlo <<interface>>
+    enum StavVozidla <<enumeration>>
+    enum StavVady <<enumeration>>
+  }
+
+  package "cz.carside.domena.uzivatele" as uziv {
+    class Uzivatel
+    class Odvolani
+    class Soubor <<datatype>>
+    interface Ridic <<interface>>
+    enum Role <<enumeration>>
+    enum StavOdvolani <<enumeration>>
+  }
+
+  package "cz.carside.domena.porty" as porty {
+    interface Databaze <<interface>>
+    interface NotifikacniSluzba <<interface>>
+  }
+}
+
+package "cz.carside.perzistence" as perz {
+  class InMemoryDatabaze
+  class SqlDatabaze <<future>>
+}
+
+package "«boundary»\ncz.carside.notifikace" as notif {
+  class EmailNotifikace <<boundary>>
+  class MockNotifikace
+}
+
+rez ..> voz : <<import>>
+rez ..> uziv : <<import>>
+voz ..> uziv : <<import>>
+rez ..> porty : <<import>>
+voz ..> porty : <<import>>
+uziv ..> porty : <<import>>
+
+perz ..> porty : <<import>>
+notif ..> porty : <<import>>
+
+note right of rez
+  Centrální balíček – rezervace spojuje
+  řidiče (uzivatele) a vozidlo v čase
+  a hlídá pravidla překryvu a schvalování.
+end note
+
+note bottom of porty
+  Rozhraní, přes která doména mluví
+  s okolím. Implementace jsou mimo
+  doménu (ADR-01).
+end note
+
+note bottom of notif
+  Hranice systému – externí
+  e-mailová služba (ADR-04).
+end note
+
+@enduml

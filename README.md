@@ -30,7 +30,7 @@ Dokumentace projektu je rozdělena do strukturovaných souborů podle standardů
   - [Dokumentace Sekvenčních diagramů](diagrams/sekvencni_tridy/sekvencni_dokumentace.md) – zpřesněné sekvenční diagramy s objekty tříd (SD01–SD08, [PDF](diagrams/sekvencni_tridy/Sekvencni_diagramy.pdf))
   - [Původní sekvenční diagramy](diagrams/sekvencni/sekvencni_dokumentace.md) (bez tříd, obecný „Systém“)
   - [Aktivitní diagramy](diagrams/aktivitni/) (Schvalování, převzetí vozu, správa účtů a vozidel)
-  - [Třídní diagram](diagrams/tridni/pokus.puml)
+  - [Třídní diagramy](diagrams/tridni_diagramy/tridni_dokumentace.md) – doménový model, role a rozhraní, balíčky (TD01–TD03, [PDF](diagrams/tridni_diagramy/Tridni_diagramy.pdf))
 
 ---
 
@@ -137,7 +137,8 @@ Car-side/
 │   ├── sekvencni/                      # Původní sekvenční diagramy (bez tříd)
 │   ├── sekvencni_tridy/                # Sekvenční diagramy s objekty tříd (puml, png, svg, pdf)
 │   ├── aktivitni/                      # Aktivitní diagramy schvalování, převzetí a správy
-│   └── tridni/                         # Diagram tříd doménového modelu
+│   ├── tridni/                         # Původní pokus o diagram tříd
+│   └── tridni_diagramy/                # Třídní diagramy TD01–TD03 (puml, png, svg, pdf)
 ├── src/                                # Zdrojový kód aplikace
 │   ├── walking_skeleton.py             # Spustitelný CP1 Walking Skeleton s automatizovanými testy
 │   ├── app.py                          # Spouštěcí server webové aplikace

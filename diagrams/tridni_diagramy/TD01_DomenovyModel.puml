@@ -1,0 +1,225 @@
+@startuml TD01_DomenovyModel
+' ============================================================
+' TD01 – Doménový model (analytický třídní diagram)
+' Třídy jsou nalezené v sekvenčních diagramech SD01–SD08
+' (diagrams/sekvencni_tridy). Operace = zprávy, které objekt
+' dané třídy v sekvenčních diagramech přijímá.
+' Atributy: problémová doména + walking_skeleton.py, mock-data.js.
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #222222
+skinparam ClassBackgroundColor #FFFFFF
+skinparam ClassBorderColor #222222
+skinparam ClassHeaderBackgroundColor #F3F3F3
+skinparam StereotypeFontSize 11
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+skinparam nodesep 60
+skinparam ranksep 70
+hide circle
+hide empty members
+
+title TD01 – Doménový model systému Car-side
+
+' ---------------- Třídy ----------------
+
+class Rezervace {
+  - id : int
+  - od : DateTime
+  - do : DateTime
+  - stav : StavRezervace
+  - pocatecniKm : int
+  - najeto : int
+  - {static} MAX_STANDARD_DNU : int = 3
+  - {static} MIN_DELKA_MIN : int = 30
+  --
+  + «create» Rezervace(u : Uzivatel, idVozidla : int, od : DateTime, do : DateTime)
+  + odeslat() : StavRezervace
+  + jeTerminPlatny() : boolean
+  + delkaDni() : float
+  + jeDostupne(v : Vozidlo, u : Uzivatel, od : DateTime, do : DateTime) : Kolize
+  + prekryvaSe(od : DateTime, do : DateTime) : boolean
+  + potvrdit()
+  + cekatNaSchvaleni()
+  + schvalit()
+  + zamitnout()
+  + muzeMenit(u : Uzivatel) : boolean
+  + zmenitTermin(od : DateTime, do : DateTime)
+  + zrusit()
+  + prevzit(km : int, palivo : int)
+  + vratit(km : int, palivo : int)
+}
+
+class Uzivatel {
+  - id : int
+  - kod : String
+  - jmeno : String
+  - email : String
+  - telefon : String
+  - hesloHash : String
+  - resetToken : String
+  - role : Role
+  - canDrive : boolean
+  --
+  + «create» Uzivatel(jmeno : String, email : String, telefon : String)
+  + muzeRidit() : boolean
+  + jeSpravce() : boolean
+  + nastavRoli(role : Role)
+  + nastavOpravneni(canDrive : boolean)
+  + podatOdvolani(text : String, priloha : Soubor)
+  + getOdvolani() : Odvolani
+  + rozhodnoutOdvolani(schvaleno : boolean)
+  + resetovatHeslo()
+  - vygenerujToken() : String
+}
+
+class Vozidlo {
+  - id : int
+  - nazev : String
+  - spz : String
+  - typ : String
+  - lokalita : String
+  - stkPlatnaDo : Date
+  - zelenaKartaDo : Date
+  - tachometr : int
+  - palivo : int
+  - stav : StavVozidla
+  --
+  + maPlatnouSTK(datum : Date) : boolean
+  + zapisStav(km : int, palivo : int)
+  + nastavStav(stav : StavVozidla)
+  + nahlasVadu(popis : String, u : Uzivatel)
+  + pridejVadu(d : Vada)
+  + getOtevreneVady() : List<Vada>
+  + maOtevreneVady() : boolean
+}
+
+class Vada {
+  - id : int
+  - popis : String
+  - nahlasil : String
+  - datum : DateTime
+  - stav : StavVady
+  --
+  + «create» Vada(popis : String, nahlasil : String)
+  + vyresit()
+}
+
+class Odvolani {
+  - text : String
+  - priloha : Soubor [0..1]
+  - datum : DateTime
+  - stav : StavOdvolani
+  - {static} MAX_PRILOHA_MB : int = 2
+  --
+  + «create» Odvolani(text : String, priloha : Soubor)
+  + getPriloha() : Soubor
+  + schvalit()
+  + zamitnout()
+}
+
+class Databaze <<singleton>> {
+  + najdiVozidlo(id : int) : Vozidlo
+  + najdiAktivniRezervace() : List<Rezervace>
+  + najdiRezervace(stav : StavRezervace) : List<Rezervace>
+  + najdiRezervace(u : Uzivatel) : List<Rezervace>
+  + najdiUzivatele(role : Role) : List<Uzivatel>
+  + najdiUzivatele(email : String) : Uzivatel
+  + existujeEmail(email : String) : boolean
+  + ulozRezervaci(r : Rezervace)
+  + ulozUzivatele(u : Uzivatel)
+  + ulozVozidlo(v : Vozidlo)
+}
+
+class NotifikacniSluzba <<boundary>> {
+  + odeslat(prijemce : String, zprava : String)
+}
+
+class Soubor <<datatype>> {
+  + nazev : String
+  + typ : String
+  + velikost : long
+  + data : byte[]
+}
+
+' ---------------- Výčtové typy ----------------
+
+enum StavRezervace <<enumeration>> {
+  DRAFT
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum Kolize <<enumeration>> {
+  ZADNA
+  VOZIDLO
+  RIDIC
+}
+
+enum Role <<enumeration>> {
+  EMPLOYEE
+  MANAGER
+  ADMIN
+}
+
+enum StavVozidla <<enumeration>> {
+  DOSTUPNE
+  V_PROVOZU
+  MIMO_PROVOZ
+}
+
+enum StavVady <<enumeration>> {
+  OPEN
+  RESOLVED
+}
+
+enum StavOdvolani <<enumeration>> {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+' ---------------- Vztahy ----------------
+
+' asociace (rezervace spojuje řidiče a vozidlo v čase)
+Rezervace "0..*" --> "1\nridic" Uzivatel : rezervuje >
+Rezervace "0..*" --> "1\nvozidlo" Vozidlo : se týká >
+
+' kompozice – části nemohou existovat bez celku
+Vozidlo "1" *-- "0..*\nvady" Vada : eviduje >
+Uzivatel "1" *-- "0..1\nodvolani" Odvolani : podává >
+
+' agregace – databáze sdružuje objekty, ale nevlastní je výhradně
+Databaze "1" o-- "0..*" Uzivatel
+Databaze "1" o-- "0..*" Vozidlo
+Databaze "1" o-- "0..*" Rezervace
+
+' závislost – posílání notifikací (fire-and-forget, ADR-04)
+Rezervace ..> NotifikacniSluzba : <<use>>
+Uzivatel ..> NotifikacniSluzba : <<use>>
+Vozidlo ..> NotifikacniSluzba : <<use>>
+
+Odvolani -[hidden]- Soubor
+
+' typy atributů (jen rozložení, typ je uveden u atributu)
+Rezervace -[hidden]- StavRezervace
+Rezervace -[hidden]- Kolize
+Uzivatel -[hidden]- Role
+Vozidlo -[hidden]- StavVozidla
+Vada -[hidden]- StavVady
+Odvolani -[hidden]- StavOdvolani
+
+note bottom of Rezervace
+  Invarianty:
+  • aktivní rezervace téhož vozidla se nepřekrývají
+  • řidič má v jednom čase max. 1 vozidlo
+  • délka <= 3 dny → CONFIRMED, jinak PENDING
+end note
+
+@enduml
