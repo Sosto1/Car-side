@@ -1,0 +1,150 @@
+@startuml TD01_DomenovyModel
+' ============================================================
+' TD01 – Doménový model (analytický třídní diagram)
+' Třídy jsou nalezené v sekvenčních diagramech SD01–SD08
+' (diagrams/sekvencni_tridy). Operace = zprávy, které objekt
+' dané třídy v sekvenčních diagramech přijímá.
+' Atributy: problémová doména + walking_skeleton.py, mock-data.js.
+' Výčtové typy (StavRezervace, Role …) jsou uvedené jen jako typy
+' atributů – jejich hodnoty jsou v dokumentaci.
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #222222
+skinparam ClassBackgroundColor #FFFFFF
+skinparam ClassBorderColor #222222
+skinparam ClassHeaderBackgroundColor #F3F3F3
+skinparam StereotypeFontSize 11
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+skinparam nodesep 50
+skinparam ranksep 60
+hide circle
+hide empty members
+
+title TD01 – Doménový model systému Car-side
+
+' ---------------- Třídy ----------------
+
+class Rezervace {
+  - id : int
+  - od : DateTime
+  - do : DateTime
+  - stav : StavRezervace
+  - pocatecniKm : int
+  - najeto : int
+  --
+  + «create» Rezervace(u : Uzivatel, idVozidla : int, od : DateTime, do : DateTime)
+  + odeslat() : StavRezervace
+  + jeTerminPlatny() : boolean
+  + delkaDni() : float
+  + jeDostupne(v : Vozidlo, u : Uzivatel, od : DateTime, do : DateTime) : Kolize
+  + prekryvaSe(od : DateTime, do : DateTime) : boolean
+  + potvrdit()
+  + cekatNaSchvaleni()
+  + schvalit()
+  + zamitnout()
+  + muzeMenit(u : Uzivatel) : boolean
+  + zmenitTermin(od : DateTime, do : DateTime)
+  + zrusit()
+  + prevzit(km : int, palivo : int)
+  + vratit(km : int, palivo : int)
+}
+
+class Uzivatel {
+  - id : int
+  - jmeno : String
+  - email : String
+  - telefon : String
+  - role : Role
+  - canDrive : boolean
+  --
+  + «create» Uzivatel(jmeno : String, email : String, telefon : String)
+  + muzeRidit() : boolean
+  + jeSpravce() : boolean
+  + nastavRoli(role : Role)
+  + nastavOpravneni(canDrive : boolean)
+  + podatOdvolani(text : String, priloha : Soubor)
+  + getOdvolani() : Odvolani
+  + rozhodnoutOdvolani(schvaleno : boolean)
+  + resetovatHeslo()
+  - vygenerujToken() : String
+}
+
+class Vozidlo {
+  - id : int
+  - nazev : String
+  - spz : String
+  - stkPlatnaDo : Date
+  - tachometr : int
+  - palivo : int
+  - stav : StavVozidla
+  --
+  + maPlatnouSTK(datum : Date) : boolean
+  + zapisStav(km : int, palivo : int)
+  + nastavStav(stav : StavVozidla)
+  + nahlasVadu(popis : String, u : Uzivatel)
+  + pridejVadu(d : Vada)
+  + getOtevreneVady() : List<Vada>
+  + maOtevreneVady() : boolean
+}
+
+class Vada {
+  - id : int
+  - popis : String
+  - stav : StavVady
+  --
+  + «create» Vada(popis : String, nahlasil : String)
+  + vyresit()
+}
+
+class Odvolani {
+  - text : String
+  - priloha : Soubor
+  - stav : StavOdvolani
+  --
+  + «create» Odvolani(text : String, priloha : Soubor)
+  + getPriloha() : Soubor
+  + schvalit()
+  + zamitnout()
+}
+
+class Databaze <<singleton>> {
+  + najdiVozidlo(id : int) : Vozidlo
+  + najdiAktivniRezervace() : List<Rezervace>
+  + najdiRezervace(stav : StavRezervace) : List<Rezervace>
+  + najdiRezervace(u : Uzivatel) : List<Rezervace>
+  + najdiUzivatele(role : Role) : List<Uzivatel>
+  + najdiUzivatele(email : String) : Uzivatel
+  + existujeEmail(email : String) : boolean
+  + ulozRezervaci(r : Rezervace)
+  + ulozUzivatele(u : Uzivatel)
+  + ulozVozidlo(v : Vozidlo)
+}
+
+class NotifikacniSluzba <<boundary>> {
+  + odeslat(prijemce : String, zprava : String)
+}
+
+' ---------------- Vztahy ----------------
+
+' asociace (rezervace spojuje řidiče a vozidlo v čase)
+Rezervace "0..*" --> "1\nridic" Uzivatel : rezervuje >
+Rezervace "0..*" --> "1\nvozidlo" Vozidlo : se týká >
+
+' kompozice – části nemohou existovat bez celku
+Vozidlo "1" *-- "0..*\nvady" Vada : eviduje >
+Uzivatel "1" *-- "0..1\nodvolani" Odvolani : podává >
+
+' agregace – databáze sdružuje objekty, ale nevlastní je výhradně
+Databaze "1" o-- "0..*" Uzivatel
+Databaze "1" o-- "0..*" Vozidlo
+Databaze "1" o-- "0..*" Rezervace
+
+' závislost – posílání notifikací (fire-and-forget, ADR-04)
+Rezervace ..> NotifikacniSluzba : <<use>>
+Uzivatel ..> NotifikacniSluzba : <<use>>
+Vozidlo ..> NotifikacniSluzba : <<use>>
+
+@enduml

@@ -1,0 +1,64 @@
+@startuml SD02_KontrolaDostupnosti
+' ============================================================
+' SD02 – Kontrola dostupnosti vozidla (interakce pro „ref“)
+' Use case: «include» Kontrola dostupnosti vozidla
+' Volá se z: SD01 (vytvoření rezervace), SD04 (úprava termínu)
+' Třídy: Rezervace, Databaze
+' Pravidla:
+'   - Confirmed reservations must not overlap (stejné vozidlo)
+'   - 1 zaměstnanec = max. 1 vozidlo ve stejném čase
+'   - aktivní rezervace = stav CONFIRMED, PENDING, IN_PROGRESS
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam BoundaryBackgroundColor #FFFFFF
+skinparam BoundaryBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam SequenceReferenceBackgroundColor #F3F3F3
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD02 – Kontrola dostupnosti vozidla (ref)
+
+participant "__r:Rezervace__" as R
+participant "__:Databaze__" as DB
+participant "__a:Rezervace__" as A
+
+[-> R : jeDostupne(v, u, od, do)
+activate R
+
+R -> DB : najdiAktivniRezervace() : List<Rezervace>
+activate DB
+note right of DB : stav = CONFIRMED,\nPENDING nebo IN_PROGRESS
+DB --> R : aktivni
+deactivate DB
+
+R -> R : kolize := ZADNA
+
+loop pro každou rezervaci a ze seznamu aktivni  (a ≠ r)
+  R -> A : prekryvaSe(od, do) : boolean
+  activate A
+  note right of A : a.od < do  AND  od < a.do
+  A --> R : prekryv
+  deactivate A
+
+  opt prekryv = true
+    alt a.vozidlo = v
+      R -> R : kolize := VOZIDLO
+    else a.ridic = u
+      R -> R : kolize := RIDIC
+    end
+  end
+end
+
+[<-- R : kolize
+deactivate R
+
+@enduml

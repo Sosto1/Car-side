@@ -1,0 +1,78 @@
+@startuml SD05_PrevzetiVraceniVozidla
+' ============================================================
+' SD05 – Převzetí a vrácení vozidla
+' Use case: Provoz vozidla – „Kontrola stavu při převzetí / vrácení“
+'           «include» Zadání tachometru a paliva
+'           «extend»  Nahlášení závady (SD06)
+' Třídy: Rezervace, Vozidlo, Databaze
+' Stavy rezervace: CONFIRMED -> IN_PROGRESS -> COMPLETED
+' Stavy vozidla:   DOSTUPNE -> V_PROVOZU -> DOSTUPNE / MIMO_PROVOZ
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam BoundaryBackgroundColor #FFFFFF
+skinparam BoundaryBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam SequenceReferenceBackgroundColor #F3F3F3
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD05 – Převzetí a vrácení vozidla
+
+actor "Zaměstnanec" as Z
+participant "__r:Rezervace__" as R
+participant "__v:Vozidlo__" as V
+participant "__:Databaze__" as DB
+
+== Převzetí vozidla ==
+
+Z -> R : prevzit(km, palivo)
+activate R
+break stav <> CONFIRMED  nebo  teď mimo interval <od, do>
+  R --> Z : chyba – vozidlo nelze převzít
+end
+R -> V : zapisStav(km, palivo)
+R -> V : nastavStav(V_PROVOZU)
+R -> R : stav := IN_PROGRESS
+R -> R : pocatecniKm := km
+R -> DB : ulozRezervaci(r)
+R --> Z : převzato
+deactivate R
+
+... zaměstnanec užívá vozidlo po dobu rezervace ...
+
+== Vrácení vozidla ==
+
+Z -> R : vratit(km, palivo)
+activate R
+R -> V : zapisStav(km, palivo)
+R -> R : najeto := km - pocatecniKm
+
+opt zaměstnanec zjistil poškození / závadu
+  ref over Z, V : SD06 – Nahlášení vady\nnahlasVadu(popis, u)
+end
+
+R -> V : maOtevreneVady() : boolean
+activate V
+V --> R : vady
+deactivate V
+
+alt vady = true
+  R -> V : nastavStav(MIMO_PROVOZ)
+else vady = false
+  R -> V : nastavStav(DOSTUPNE)
+end
+
+R -> R : stav := COMPLETED
+R -> DB : ulozRezervaci(r)
+R --> Z : vráceno (najeto km)
+deactivate R
+
+@enduml

@@ -1,0 +1,100 @@
+@startuml SD01_VytvoreniRezervace
+' ============================================================
+' SD01 – Vytvoření rezervace (hlavní sekvenční diagram)
+' Use case: Rezervace / Správa rezervací – „Vytvořit rezervaci“
+' Třídy: Rezervace, Uzivatel, Vozidlo, Databaze, NotifikacniSluzba
+' Pravidla (walking_skeleton.py, app.js):
+'   - řidič musí mít oprávnění k řízení (canDrive)
+'   - vozidlo musí mít platnou STK
+'   - termín: od < do, ne v minulosti, min. 30 minut
+'   - potvrzené rezervace se nesmí překrývat (SD02)
+'   - <= 3 dny -> CONFIRMED, > 3 dny -> PENDING (schvaluje správce)
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam BoundaryBackgroundColor #FFFFFF
+skinparam BoundaryBorderColor #222222
+skinparam DatabaseBackgroundColor #FFFFFF
+skinparam DatabaseBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam SequenceReferenceBackgroundColor #F3F3F3
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD01 – Vytvoření rezervace vozidla
+
+actor "Zaměstnanec" as Z
+participant "__r:Rezervace__" as R
+participant "__u:Uzivatel__" as U
+participant "__:Databaze__" as DB
+participant "__v:Vozidlo__" as V
+boundary "__:NotifikacniSluzba__\n«IS e-mail»" as NS
+
+Z -> R ** : «create» Rezervace(u, idVozidla, od, do)
+note right of R : stav = DRAFT
+Z -> R : odeslat()
+activate R
+
+R -> R : jeTerminPlatny() : boolean
+break od >= do  nebo  od < teď  nebo  délka < 30 min
+  R --> Z : chyba – neplatný termín
+end
+
+R -> U : muzeRidit() : boolean
+activate U
+U --> R : ridi
+deactivate U
+break ridi = false
+  R --> Z : zamítnuto – pozastavené oprávnění k řízení
+end
+
+R -> DB : najdiVozidlo(idVozidla) : Vozidlo
+activate DB
+DB --> R : v
+deactivate DB
+
+R -> V : maPlatnouSTK(od) : boolean
+activate V
+V --> R : stkOk
+deactivate V
+break stkOk = false
+  R --> Z : zamítnuto – vozidlo má prošlou STK
+end
+
+ref over R, DB : SD02 – Kontrola dostupnosti\njeDostupne(v, u, od, do) : kolize
+break kolize <> ZADNA
+  R --> Z : zamítnuto – termín obsazen (vozidlo / řidič)
+end
+
+R -> R : delkaDni() : float
+
+alt délka <= 3 dny
+  R -> R : potvrdit()
+  note right of R : stav = CONFIRMED
+  R -> DB : ulozRezervaci(r)
+  R -> NS : odeslat(u.email, "Rezervace potvrzena")
+else délka > 3 dny
+  R -> R : cekatNaSchvaleni()
+  note right of R : stav = PENDING
+  R -> DB : ulozRezervaci(r)
+  R -> DB : najdiUzivatele(MANAGER) : List<Uzivatel>
+  activate DB
+  DB --> R : spravci
+  deactivate DB
+  loop pro každého správce s ze seznamu spravci
+    R -> NS : odeslat(s.email, "Nová rezervace ke schválení")
+  end
+  R -> NS : odeslat(u.email, "Rezervace čeká na schválení")
+end
+
+R --> Z : stav rezervace
+deactivate R
+
+@enduml

@@ -1,0 +1,73 @@
+@startuml SD03_SchvaleniRezervace
+' ============================================================
+' SD03 – Schválení / zamítnutí rezervace správcem
+' Use case: Správa rezervací – „Schválit / zamítnout rezervaci“
+' Třídy: Databaze, Rezervace, NotifikacniSluzba
+' Pravidla:
+'   - schvalovat lze jen rezervaci ve stavu PENDING (> 3 dny)
+'   - PENDING -> CONFIRMED  nebo  PENDING -> REJECTED
+'   - zamítnutím se termín vozidla uvolní
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam BoundaryBackgroundColor #FFFFFF
+skinparam BoundaryBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam SequenceReferenceBackgroundColor #F3F3F3
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD03 – Schválení / zamítnutí rezervace správcem
+
+actor "Správce\nvozového parku" as S
+participant "__:Databaze__" as DB
+participant "__r:Rezervace__" as R
+boundary "__:NotifikacniSluzba__\n«IS e-mail»" as NS
+actor "Zaměstnanec" as Z
+
+S -> DB : najdiRezervace(PENDING) : List<Rezervace>
+activate DB
+DB --> S : cekajici
+deactivate DB
+
+note over S : správce vybere\nrezervaci r ze seznamu
+
+alt rozhodnutí = schválit
+  S -> R : schvalit()
+  activate R
+  break stav <> PENDING
+    R --> S : chyba – rezervaci nelze schválit
+  end
+  R -> R : stav := CONFIRMED
+  R -> DB : ulozRezervaci(r)
+  R -> NS : odeslat(r.ridic.email, "Rezervace schválena")
+  activate NS
+  NS -> Z : e-mail: rezervace schválena
+  deactivate NS
+  R --> S : CONFIRMED
+  deactivate R
+else rozhodnutí = zamítnout
+  S -> R : zamitnout()
+  activate R
+  break stav <> PENDING
+    R --> S : chyba – rezervaci nelze zamítnout
+  end
+  R -> R : stav := REJECTED
+  note right of R : termín vozidla\nje opět volný
+  R -> DB : ulozRezervaci(r)
+  R -> NS : odeslat(r.ridic.email, "Rezervace zamítnuta")
+  activate NS
+  NS -> Z : e-mail: rezervace zamítnuta
+  deactivate NS
+  R --> S : REJECTED
+  deactivate R
+end
+
+@enduml

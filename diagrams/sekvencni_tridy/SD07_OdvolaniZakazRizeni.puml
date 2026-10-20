@@ -1,0 +1,99 @@
+@startuml SD07_OdvolaniZakazRizeni
+' ============================================================
+' SD07 – Odvolání proti zákazu řízení
+' Use case: Řidičský průkaz / oprávnění – kontrola oprávnění,
+'           schválení oprávnění (zde řeší administrátor)
+' Třídy: Uzivatel, Odvolani, Databaze, NotifikacniSluzba
+' Pravidla (app.js):
+'   - odvolání podává uživatel s pozastaveným oprávněním (canDrive = false)
+'   - příloha (sken / PDF) max. 2 MB
+'   - schválení -> canDrive = true, zamítnutí -> beze změny
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam BoundaryBackgroundColor #FFFFFF
+skinparam BoundaryBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam SequenceReferenceBackgroundColor #F3F3F3
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD07 – Odvolání proti zákazu řízení
+
+actor "Zaměstnanec" as Z
+participant "__u:Uzivatel__" as U
+participant "__o:Odvolani__" as O
+participant "__:Databaze__" as DB
+boundary "__:NotifikacniSluzba__\n«IS e-mail»" as NS
+actor "Administrátor" as A
+
+== Podání odvolání (zaměstnanec) ==
+
+Z -> U : podatOdvolani(text, priloha)
+activate U
+break priloha.velikost > 2 MB
+  U --> Z : chyba – příloha je příliš velká
+end
+create O
+U -> O : «create» Odvolani(text, priloha)
+note right of O : stav = PENDING
+U -> DB : ulozUzivatele(u)
+activate DB
+DB --> U : ok
+deactivate DB
+break ok = false
+  U -> U : odvolani := puvodni
+  U --> Z : chyba – odvolání se nepodařilo uložit
+end
+U -> DB : najdiUzivatele(ADMIN) : List<Uzivatel>
+activate DB
+DB --> U : admini
+deactivate DB
+loop pro každého administrátora a ze seznamu admini
+  U -> NS : odeslat(a.email, "Nové odvolání k zákazu řízení")
+  activate NS
+  NS -> A : e-mail: nové odvolání
+  deactivate NS
+end
+U --> Z : odvolání odesláno
+deactivate U
+
+== Rozhodnutí o odvolání (administrátor) ==
+
+A -> U : getOdvolani() : Odvolani
+activate U
+U --> A : o
+deactivate U
+A -> O : getPriloha() : Soubor
+activate O
+O --> A : priloha
+deactivate O
+
+A -> U : rozhodnoutOdvolani(schvaleno)
+activate U
+alt schvaleno = true
+  U -> O : schvalit()
+  activate O
+  O -> O : stav := APPROVED
+  deactivate O
+  U -> U : canDrive := true
+  U -> NS : odeslat(u.email, "Odvolání schváleno – oprávnění obnoveno")
+else schvaleno = false
+  U -> O : zamitnout()
+  activate O
+  O -> O : stav := REJECTED
+  deactivate O
+  U -> NS : odeslat(u.email, "Odvolání zamítnuto")
+end
+U -> DB : ulozUzivatele(u)
+U --> A : rozhodnuto
+deactivate U
+
+@enduml
