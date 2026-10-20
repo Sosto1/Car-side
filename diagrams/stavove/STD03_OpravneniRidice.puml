@@ -1,0 +1,117 @@
+@startdot STD03_OpravneniRidice
+digraph STD03_OpravneniRidice {
+  // ============================================================
+  // STD03 – Stavový diagram oprávnění k řízení (Uzivatel + Odvolani)
+  //   černý blok      = stav oprávnění (atribut canDrive)
+  //   šedý + černý    = stav odvolání + stav oprávnění
+  //   barevný blok    = use case / akce aktéra + REST endpoint
+  //   kosočtverec     = rozhodnutí aktéra (barva = aktér)
+  // Odvozeno ze sekvenčních diagramů SD01, SD07 a SD08.
+  // ============================================================
+  graph [rankdir=TB, splines=ortho, nodesep=0.6, ranksep=0.45, fontname="Arial", bgcolor="white",
+         label="STD03 – Stavový diagram: Oprávnění k řízení (Uzivatel)", labelloc=t, fontsize=16];
+  node  [fontname="Arial", fontsize=10, margin="0.15,0.06"];
+  edge  [fontname="Arial", fontsize=9, arrowsize=0.7, color="#222222"];
+
+  // ---------- start / konec ----------
+  START [shape=circle, style=filled, fillcolor="#8BD448", label="START", fontsize=10, width=0.8, fixedsize=true];
+  END1  [shape=circle, style=filled, fillcolor="#E5533D", label=<<B>X</B>>, fontsize=13, width=0.35, fixedsize=true];
+  END2  [shape=circle, style=filled, fillcolor="#E5533D", label=<<B>X</B>>, fontsize=13, width=0.35, fixedsize=true];
+
+  // ---------- stavy (černé) ----------
+  node [shape=box, style="rounded,filled", fillcolor="#1A1A1A", fontcolor="white", fontsize=11, width=1.8];
+  MUZE  [label="MŮŽE ŘÍDIT\n(canDrive = true)"];
+  POZ   [label="POZASTAVENO\n(canDrive = false)"];
+
+  ODV_PENDING [shape=plain, style="", label=<
+    <TABLE BORDER="0" CELLSPACING="3" CELLPADDING="5">
+      <TR><TD STYLE="rounded" BORDER="1" COLOR="#555555" BGCOLOR="#E6E6E6"><FONT COLOR="black">ODVOLÁNÍ PODÁNO (PENDING)</FONT></TD></TR>
+      <TR><TD STYLE="rounded" BORDER="0" BGCOLOR="#1A1A1A"><FONT COLOR="white">POZASTAVENO</FONT></TD></TR>
+    </TABLE>>];
+  ODV_REJ [shape=plain, style="", label=<
+    <TABLE BORDER="0" CELLSPACING="3" CELLPADDING="5">
+      <TR><TD STYLE="rounded" BORDER="1" COLOR="#555555" BGCOLOR="#E6E6E6"><FONT COLOR="black">ODVOLÁNÍ ZAMÍTNUTO (REJECTED)</FONT></TD></TR>
+      <TR><TD STYLE="rounded" BORDER="0" BGCOLOR="#1A1A1A"><FONT COLOR="white">POZASTAVENO</FONT></TD></TR>
+    </TABLE>>];
+  ODV_ERR [shape=plain, style="", label=<
+    <TABLE BORDER="0" CELLSPACING="3" CELLPADDING="5">
+      <TR><TD STYLE="rounded" BORDER="1" COLOR="#555555" BGCOLOR="#E6E6E6"><FONT COLOR="black">ODVOLÁNÍ NEULOŽENO</FONT></TD></TR>
+      <TR><TD STYLE="rounded" BORDER="0" BGCOLOR="#1A1A1A"><FONT COLOR="white">POZASTAVENO</FONT></TD></TR>
+    </TABLE>>];
+
+  // ---------- akce: Zaměstnanec (žlutá) ----------
+  node [shape=box, style=filled, fillcolor="#F2E600", fontcolor="black", fontsize=10, width=2.6];
+  UC17 [label="UC17: Podat odvolání s přílohou\n[POST /users/{id}/appeal]"];
+  UC1  [label="UC1: Vytvořit rezervaci\n[POST /reservations]"];
+
+  // ---------- akce: Administrátor (fialová) ----------
+  node [fillcolor="#9B1FB5", fontcolor="white"];
+  UC15 [label="UC15: Vytvořit účet\n[POST /users]"];
+  UC16 [label="UC16: Změnit oprávnění k řízení\n[PUT /users/{id}]"];
+  UC18 [label="UC18: Schválit odvolání\n[PATCH /users/{id}/appeal]"];
+  UC19 [label="UC19: Zamítnout odvolání\n[PATCH /users/{id}/appeal]"];
+
+  // ---------- akce: Systém (světle modrá) ----------
+  node [fillcolor="#7FD6E6", fontcolor="black"];
+  UC17S [label="Kontrola přílohy (max. 2 MB)\na uložení odvolání"];
+
+  // ---------- rozhodnutí ----------
+  node [shape=diamond, style=filled, fontsize=10, width=1.5, height=0.6, fixedsize=true];
+  D_ADM0 [label="Administrátor", fillcolor="#9B1FB5", fontcolor="white"];
+  D_ADM1 [label="Administrátor", fillcolor="#9B1FB5", fontcolor="white"];
+  D_ADM2 [label="Administrátor", fillcolor="#9B1FB5", fontcolor="white"];
+  D_ADM3 [label="Administrátor", fillcolor="#9B1FB5", fontcolor="white"];
+  D_ZAM1 [label="Zaměstnanec", fillcolor="#F2E600", fontcolor="black"];
+  D_ZAM2 [label="Zaměstnanec", fillcolor="#F2E600", fontcolor="black"];
+  D_SYS1 [label="Systém", fillcolor="#7FD6E6", fontcolor="black"];
+
+  // ---------- přechody ----------
+  START -> UC15;
+  UC15 -> D_ADM0;
+  D_ADM0 -> MUZE [xlabel="canDrive = true"];
+  D_ADM0 -> POZ  [xlabel="canDrive = false"];
+
+  // může řídit
+  MUZE -> D_ZAM1;
+  D_ZAM1 -> UC1 [xlabel="Rezervovat\n(STD01)"];
+  MUZE -> D_ADM1;
+  D_ADM1 -> UC16 [xlabel="Odebrat oprávnění", color="#E5533D"];
+
+  // pozastaveno
+  POZ -> D_ADM2;
+  D_ADM2 -> UC16 [xlabel="Obnovit oprávnění"];
+  UC16 -> MUZE [xlabel="true"];
+  UC16 -> POZ  [xlabel="false", color="#E5533D"];
+
+  POZ -> D_ZAM2;
+  D_ZAM2 -> UC17 [xlabel="Podat odvolání"];
+  UC17 -> UC17S;
+  UC17S -> D_SYS1;
+  D_SYS1 -> ODV_PENDING [xlabel="OK"];
+  D_SYS1 -> ODV_ERR [xlabel="příloha > 2 MB\nnebo chyba uložení", color="#E5533D"];
+  ODV_ERR -> END1;
+
+  ODV_PENDING -> D_ADM3;
+  D_ADM3 -> UC18 [xlabel="Schválit"];
+  D_ADM3 -> UC19 [xlabel="Zamítnout", color="#E5533D"];
+  UC18 -> MUZE [xlabel="canDrive := true"];
+  UC19 -> ODV_REJ;
+  ODV_REJ -> END2;
+
+  // ---------- legenda ----------
+  LEGENDA [shape=plain, style="", fixedsize=false, width=0, height=0, fontcolor="black", label=<
+    <TABLE BORDER="1" COLOR="#999999" CELLBORDER="0" CELLSPACING="4" CELLPADDING="4">
+      <TR><TD COLSPAN="2"><B>Legenda</B></TD></TR>
+      <TR><TD BGCOLOR="#F2E600" WIDTH="30"> </TD><TD ALIGN="LEFT">akce zaměstnance</TD></TR>
+      <TR><TD BGCOLOR="#138C8C"> </TD><TD ALIGN="LEFT">akce správce vozového parku</TD></TR>
+      <TR><TD BGCOLOR="#9B1FB5"> </TD><TD ALIGN="LEFT">akce administrátora</TD></TR>
+      <TR><TD BGCOLOR="#7FD6E6"> </TD><TD ALIGN="LEFT">automatická akce systému</TD></TR>
+      <TR><TD BGCOLOR="#1A1A1A" STYLE="rounded"> </TD><TD ALIGN="LEFT">stav</TD></TR>
+      <TR><TD><FONT COLOR="#E5533D">───</FONT></TD><TD ALIGN="LEFT">zrušení / zamítnutí / chyba</TD></TR>
+    </TABLE>>];
+  { rank=sink; LEGENDA; }
+
+  { rank=same; START; UC15; }
+  { rank=same; MUZE; POZ; }
+}
+@enddot

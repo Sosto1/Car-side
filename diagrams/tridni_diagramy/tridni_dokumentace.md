@@ -18,8 +18,9 @@ a jsou vytvořené postupem z přednášky *Software Engineering*:
 
 ## TD01 – Doménový model
 
-Obsahuje 7 tříd ze sekvenčních diagramů (`Rezervace`, `Uzivatel`, `Vozidlo`, `Vada`, `Odvolani`, `Databaze`,
-`NotifikacniSluzba`), datový typ `Soubor` a výčtové typy stavů.
+Obsahuje jen 7 navzájem propojených tříd ze sekvenčních diagramů (`Rezervace`, `Uzivatel`, `Vozidlo`, `Vada`,
+`Odvolani`, `Databaze`, `NotifikacniSluzba`) s nejdůležitějšími atributy. Výčtové typy a datový typ `Soubor`
+nejsou kresleny jako samostatné bloky – vystupují jen jako typy atributů a jejich hodnoty jsou uvedené níže.
 
 | Vztah | Typ | Násobnost | Proč |
 |---|---|---|---|
@@ -30,8 +31,20 @@ Obsahuje 7 tříd ze sekvenčních diagramů (`Rezervace`, `Uzivatel`, `Vozidlo`
 | Databaze ◇— Uzivatel / Vozidlo / Rezervace | agregace | `1` : `0..*` | databáze objekty sdružuje, ale nevlastní je výhradně (jako `CarDatabase ◇ Car` v přednášce) |
 | Rezervace / Uzivatel / Vozidlo ⇢ NotifikacniSluzba | závislost «use» | – | jen volají `odeslat()`, neuchovávají si ji (fire-and-forget, ADR-04) |
 
-Stavy: `StavRezervace` (DRAFT → PENDING/CONFIRMED → IN_PROGRESS → COMPLETED, případně REJECTED/CANCELLED),
-`StavVozidla`, `StavVady`, `StavOdvolani`, `Role`, `Kolize` (výsledek SD02).
+Typy použité u atributů:
+
+| Typ | Hodnoty |
+|---|---|
+| `StavRezervace` | DRAFT, PENDING, CONFIRMED, REJECTED, CANCELLED, IN_PROGRESS, COMPLETED |
+| `StavVozidla` | DOSTUPNE, V_PROVOZU, MIMO_PROVOZ |
+| `StavVady` | OPEN, RESOLVED |
+| `StavOdvolani` | PENDING, APPROVED, REJECTED |
+| `Role` | EMPLOYEE, MANAGER, ADMIN |
+| `Kolize` (výsledek SD02) | ZADNA, VOZIDLO, RIDIC |
+| `Soubor` | příloha odvolání – název, typ, velikost (max. 2 MB), data |
+
+Invarianty rezervace: aktivní rezervace téhož vozidla se nepřekrývají, řidič má v jednom čase max. 1 vozidlo,
+délka ≤ 3 dny → CONFIRMED, jinak PENDING.
 
 ### Kontrola: zprávy ze sekvenčních diagramů → operace tříd
 

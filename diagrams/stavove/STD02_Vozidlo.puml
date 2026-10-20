@@ -1,0 +1,113 @@
+@startdot STD02_Vozidlo
+digraph STD02_Vozidlo {
+  // ============================================================
+  // STD02 – Stavový diagram vozidla (styl stavového toku)
+  //   černý blok      = stav vozidla (StavVozidla)
+  //   šedý + černý    = vedlejší stav (vada) + stav vozidla
+  //   barevný blok    = use case / akce aktéra + REST endpoint
+  //   kosočtverec     = rozhodnutí aktéra (barva = aktér)
+  // Odvozeno ze sekvenčních diagramů SD05 a SD06.
+  // ============================================================
+  graph [rankdir=TB, splines=ortho, nodesep=0.55, ranksep=0.45, fontname="Arial", bgcolor="white",
+         label="STD02 – Stavový diagram: Vozidlo", labelloc=t, fontsize=16];
+  node  [fontname="Arial", fontsize=10, margin="0.15,0.06"];
+  edge  [fontname="Arial", fontsize=9, arrowsize=0.7, color="#222222"];
+
+  // ---------- start / konec ----------
+  START [shape=circle, style=filled, fillcolor="#8BD448", label="START", fontsize=10, width=0.8, fixedsize=true];
+  END1  [shape=circle, style=filled, fillcolor="#E5533D", label=<<B>X</B>>, fontsize=13, width=0.35, fixedsize=true];
+
+  // ---------- stavy (černé) ----------
+  node [shape=box, style="rounded,filled", fillcolor="#1A1A1A", fontcolor="white", fontsize=11, width=1.8];
+  DOSTUPNE    [label="DOSTUPNÉ\n(DOSTUPNE)"];
+  V_PROVOZU   [label="V PROVOZU\n(V_PROVOZU)"];
+  MIMO_PROVOZ [label="MIMO PROVOZ\n(MIMO_PROVOZ)"];
+  VYRAZENO    [label="VYŘAZENO Z FLOTILY"];
+  VADA_OPEN   [shape=plain, style="", label=<
+    <TABLE BORDER="0" CELLSPACING="3" CELLPADDING="5">
+      <TR><TD STYLE="rounded" BORDER="1" COLOR="#555555" BGCOLOR="#E6E6E6"><FONT COLOR="black">VADA NAHLÁŠENA (OPEN)</FONT></TD></TR>
+      <TR><TD STYLE="rounded" BORDER="0" BGCOLOR="#1A1A1A"><FONT COLOR="white">DOSTUPNÉ nebo V PROVOZU<BR/>(stav se nemění)</FONT></TD></TR>
+    </TABLE>>];
+
+  // ---------- akce: Zaměstnanec (žlutá) ----------
+  node [shape=box, style=filled, fillcolor="#F2E600", fontcolor="black", fontsize=10, width=2.6];
+  UC7  [label="UC7: Převzít vozidlo\n[POST /reservations/{id}/pickup]"];
+  UC8  [label="UC8: Vrátit vozidlo\n[POST /reservations/{id}/return]"];
+  UC10 [label="UC10: Nahlásit vadu\n[POST /vehicles/{id}/defects]"];
+
+  // ---------- akce: Správce (tyrkysová) ----------
+  node [fillcolor="#138C8C", fontcolor="white"];
+  UC9  [label="UC9: Přidat vozidlo\n[POST /vehicles]"];
+  UC12 [label="UC12: Vyřešit vadu\n[PATCH /vehicles/{id}/defects/{d}]"];
+  UC13 [label="UC13: Upravit vozidlo (nová STK)\n[PUT /vehicles/{id}]"];
+  UC14 [label="UC14: Odebrat vozidlo\n[DELETE /vehicles/{id}]"];
+
+  // ---------- akce: Systém (světle modrá) ----------
+  node [fillcolor="#7FD6E6", fontcolor="black"];
+  UC11 [label="UC11: Kontrola platnosti STK\n(denně, automaticky)"];
+
+  // ---------- rozhodnutí ----------
+  node [shape=diamond, style=filled, fontsize=10, width=1.5, height=0.6, fixedsize=true];
+  D_ZAM1 [label="Zaměstnanec", fillcolor="#F2E600", fontcolor="black"];
+  D_ZAM2 [label="Zaměstnanec", fillcolor="#F2E600", fontcolor="black"];
+  D_SPR1 [label="Správce", fillcolor="#138C8C", fontcolor="white"];
+  D_SPR2 [label="Správce", fillcolor="#138C8C", fontcolor="white"];
+  D_SYS1 [label="Systém", fillcolor="#7FD6E6", fontcolor="black"];
+  D_SYS2 [label="Systém", fillcolor="#7FD6E6", fontcolor="black"];
+  D_SYS3 [label="Systém", fillcolor="#7FD6E6", fontcolor="black"];
+
+  // ---------- přechody ----------
+  START -> UC9;
+  UC9 -> DOSTUPNE;
+
+  // dostupné vozidlo
+  DOSTUPNE -> D_ZAM1;
+  D_ZAM1 -> UC7  [xlabel="Převzít"];
+  D_ZAM1 -> UC10 [xlabel="Nahlásit vadu"];
+  UC7 -> V_PROVOZU;
+
+  DOSTUPNE -> D_SPR1;
+  D_SPR1 -> UC14 [xlabel="Vyřadit", color="#E5533D"];
+  UC14 -> VYRAZENO;
+  VYRAZENO -> END1;
+
+  DOSTUPNE -> UC11;
+  UC11 -> D_SYS1;
+  D_SYS1 -> MIMO_PROVOZ [xlabel="STK prošla", color="#E5533D"];
+  D_SYS1 -> DOSTUPNE [xlabel="STK platná", style=dashed];
+
+  // vozidlo v provozu
+  V_PROVOZU -> D_ZAM2;
+  D_ZAM2 -> UC8  [xlabel="Vrátit"];
+  D_ZAM2 -> UC10 [xlabel="Nahlásit vadu"];
+  UC10 -> VADA_OPEN;
+
+  UC8 -> D_SYS2;
+  D_SYS2 -> DOSTUPNE [xlabel="bez otevřených vad"];
+  D_SYS2 -> MIMO_PROVOZ [xlabel="otevřená vada", color="#E5533D"];
+
+  // mimo provoz
+  MIMO_PROVOZ -> D_SPR2;
+  D_SPR2 -> UC12 [xlabel="Vyřešit vadu"];
+  D_SPR2 -> UC13 [xlabel="Obnovit STK"];
+  UC12 -> D_SYS3;
+  UC13 -> D_SYS3;
+  D_SYS3 -> DOSTUPNE [xlabel="žádné vady\na platná STK"];
+  D_SYS3 -> MIMO_PROVOZ [xlabel="další vady\nnebo prošlá STK", color="#E5533D"];
+
+  // ---------- legenda ----------
+  LEGENDA [shape=plain, style="", fixedsize=false, width=0, height=0, fontcolor="black", label=<
+    <TABLE BORDER="1" COLOR="#999999" CELLBORDER="0" CELLSPACING="4" CELLPADDING="4">
+      <TR><TD COLSPAN="2"><B>Legenda</B></TD></TR>
+      <TR><TD BGCOLOR="#F2E600" WIDTH="30"> </TD><TD ALIGN="LEFT">akce zaměstnance</TD></TR>
+      <TR><TD BGCOLOR="#138C8C"> </TD><TD ALIGN="LEFT">akce správce vozového parku</TD></TR>
+      <TR><TD BGCOLOR="#9B1FB5"> </TD><TD ALIGN="LEFT">akce administrátora</TD></TR>
+      <TR><TD BGCOLOR="#7FD6E6"> </TD><TD ALIGN="LEFT">automatická akce systému</TD></TR>
+      <TR><TD BGCOLOR="#1A1A1A" STYLE="rounded"> </TD><TD ALIGN="LEFT">stav</TD></TR>
+      <TR><TD><FONT COLOR="#E5533D">───</FONT></TD><TD ALIGN="LEFT">zrušení / zamítnutí / chyba</TD></TR>
+    </TABLE>>];
+  { rank=sink; LEGENDA; }
+
+  { rank=same; START; UC9; }
+}
+@enddot

@@ -1,0 +1,126 @@
+@startdot STD01_Rezervace
+digraph STD01_Rezervace {
+  // ============================================================
+  // STD01 – Stavový diagram rezervace (styl stavového toku)
+  //   černý blok      = stav rezervace (StavRezervace)
+  //   barevný blok    = use case / akce aktéra + REST endpoint
+  //   kosočtverec     = rozhodnutí aktéra (barva = aktér)
+  //   červená hrana   = zrušení / zamítnutí / chyba
+  // Odvozeno ze sekvenčních diagramů SD01–SD05.
+  // ============================================================
+  graph [rankdir=TB, splines=ortho, nodesep=0.55, ranksep=0.45, fontname="Arial", bgcolor="white",
+         label="STD01 – Stavový diagram: Rezervace", labelloc=t, fontsize=16];
+  node  [fontname="Arial", fontsize=10, margin="0.15,0.06"];
+  edge  [fontname="Arial", fontsize=9, arrowsize=0.7, color="#222222"];
+
+  // ---------- start / konec ----------
+  START [shape=circle, style=filled, fillcolor="#8BD448", label="START", fontsize=10, width=0.8, fixedsize=true];
+  END1  [shape=circle, style=filled, fillcolor="#E5533D", label=<<B>X</B>>, fontsize=13, width=0.35, fixedsize=true];
+  END2  [shape=circle, style=filled, fillcolor="#E5533D", label=<<B>X</B>>, fontsize=13, width=0.35, fixedsize=true];
+  END3  [shape=circle, style=filled, fillcolor="#E5533D", label=<<B>X</B>>, fontsize=13, width=0.35, fixedsize=true];
+  END4  [shape=circle, style=filled, fillcolor="#E5533D", label=<<B>X</B>>, fontsize=13, width=0.35, fixedsize=true];
+
+  // ---------- stavy (černé) ----------
+  node [shape=box, style="rounded,filled", fillcolor="#1A1A1A", fontcolor="white", fontsize=11, width=1.8];
+  DRAFT       [label="KONCEPT (DRAFT)"];
+  PENDING     [label="ČEKÁ NA SCHVÁLENÍ\n(PENDING)"];
+  CONFIRMED   [label="POTVRZENA\n(CONFIRMED)"];
+  IN_PROGRESS [label="PROBÍHÁ\n(IN_PROGRESS)"];
+  COMPLETED   [label="DOKONČENA\n(COMPLETED)"];
+  REJECTED    [label="ZAMÍTNUTA\n(REJECTED)"];
+  CANCELLED   [label="ZRUŠENA\n(CANCELLED)"];
+  NEULOZENA   [shape=plain, style="", label=<
+    <TABLE BORDER="0" CELLSPACING="3" CELLPADDING="5">
+      <TR><TD STYLE="rounded" BORDER="1" COLOR="#555555" BGCOLOR="#E6E6E6"><FONT COLOR="black">CHYBA OVĚŘENÍ</FONT></TD></TR>
+      <TR><TD STYLE="rounded" BORDER="0" BGCOLOR="#1A1A1A"><FONT COLOR="white">REZERVACE SE NEULOŽÍ</FONT></TD></TR>
+    </TABLE>>];
+
+  // ---------- akce: Zaměstnanec (žlutá) ----------
+  node [shape=box, style=filled, fillcolor="#F2E600", fontcolor="black", fontsize=10, width=2.6];
+  UC1 [label="UC1: Vytvořit rezervaci\n[POST /reservations]"];
+  UC5 [label="UC5: Upravit termín rezervace\n[PUT /reservations/{id}]"];
+  UC6 [label="UC6: Zrušit rezervaci\n[PATCH /reservations/{id}]"];
+  UC7 [label="UC7: Převzít vozidlo\n[POST /reservations/{id}/pickup]"];
+  UC8 [label="UC8: Vrátit vozidlo\n[POST /reservations/{id}/return]"];
+
+  // ---------- akce: Správce (tyrkysová) ----------
+  node [fillcolor="#138C8C", fontcolor="white"];
+  UC3 [label="UC3: Schválit rezervaci\n[PUT /reservations/{id}/status]"];
+  UC4 [label="UC4: Zamítnout rezervaci\n[PUT /reservations/{id}/status]"];
+
+  // ---------- akce: Systém (světle modrá) ----------
+  node [fillcolor="#7FD6E6", fontcolor="black"];
+  UC2 [label="UC2: Ověřit rezervaci\n(termín, řidič, STK, dostupnost)"];
+  UC5S [label="Kontrola dostupnosti\nnového termínu (SD02)"];
+
+  // ---------- rozhodnutí ----------
+  node [shape=diamond, style=filled, fontsize=10, width=1.5, height=0.6, fixedsize=true];
+  D_SYS1 [label="Systém", fillcolor="#7FD6E6", fontcolor="black"];
+  D_SYS2 [label="Systém", fillcolor="#7FD6E6", fontcolor="black"];
+  D_SPR  [label="Správce", fillcolor="#138C8C", fontcolor="white"];
+  D_ZAM1 [label="Zaměstnanec", fillcolor="#F2E600", fontcolor="black"];
+  D_ZAM2 [label="Zaměstnanec", fillcolor="#F2E600", fontcolor="black"];
+  D_ZAM3 [label="Zaměstnanec", fillcolor="#F2E600", fontcolor="black"];
+  D_SPR2 [label="Správce", fillcolor="#138C8C", fontcolor="white"];
+
+  // ---------- přechody ----------
+  START -> UC1;
+  UC1 -> DRAFT;
+  DRAFT -> UC2 [xlabel="odeslat()"];
+  UC2 -> D_SYS1;
+  D_SYS1 -> NEULOZENA [xlabel="Chyba", color="#E5533D"];
+  NEULOZENA -> END1;
+  D_SYS1 -> CONFIRMED [xlabel="≤ 3 dny"];
+  D_SYS1 -> PENDING [xlabel="> 3 dny"];
+
+  // čeká na schválení
+  PENDING -> D_SPR;
+  D_SPR -> UC3 [xlabel="Schválit"];
+  D_SPR -> UC4 [xlabel="Zamítnout", color="#E5533D"];
+  UC3 -> CONFIRMED;
+  UC4 -> REJECTED;
+  REJECTED -> END2;
+  PENDING -> D_ZAM1;
+  D_ZAM1 -> UC6 [xlabel="Zrušit", color="#E5533D"];
+
+  // potvrzená rezervace
+  CONFIRMED -> D_ZAM2;
+  D_ZAM2 -> UC5 [xlabel="Upravit"];
+  D_ZAM2 -> UC6 [xlabel="Zrušit", color="#E5533D"];
+  D_ZAM2 -> UC7 [xlabel="Převzít"];
+  CONFIRMED -> D_SPR2;
+  D_SPR2 -> UC6 [xlabel="Zrušit", color="#E5533D"];
+
+  UC5 -> UC5S;
+  UC5S -> D_SYS2;
+  D_SYS2 -> CONFIRMED [xlabel="volno, ≤ 3 dny"];
+  D_SYS2 -> PENDING [xlabel="volno, > 3 dny"];
+  D_SYS2 -> CONFIRMED [xlabel="obsazeno\n(beze změny)", color="#E5533D", style=dashed];
+
+  UC6 -> CANCELLED;
+  CANCELLED -> END3;
+
+  // jízda
+  UC7 -> IN_PROGRESS;
+  IN_PROGRESS -> D_ZAM3;
+  D_ZAM3 -> UC8 [xlabel="Vrátit"];
+  UC8 -> COMPLETED;
+  COMPLETED -> END4;
+
+  // ---------- legenda ----------
+  LEGENDA [shape=plain, style="", fixedsize=false, width=0, height=0, fontcolor="black", label=<
+    <TABLE BORDER="1" COLOR="#999999" CELLBORDER="0" CELLSPACING="4" CELLPADDING="4">
+      <TR><TD COLSPAN="2"><B>Legenda</B></TD></TR>
+      <TR><TD BGCOLOR="#F2E600" WIDTH="30"> </TD><TD ALIGN="LEFT">akce zaměstnance</TD></TR>
+      <TR><TD BGCOLOR="#138C8C"> </TD><TD ALIGN="LEFT">akce správce vozového parku</TD></TR>
+      <TR><TD BGCOLOR="#9B1FB5"> </TD><TD ALIGN="LEFT">akce administrátora</TD></TR>
+      <TR><TD BGCOLOR="#7FD6E6"> </TD><TD ALIGN="LEFT">automatická akce systému</TD></TR>
+      <TR><TD BGCOLOR="#1A1A1A" STYLE="rounded"> </TD><TD ALIGN="LEFT">stav</TD></TR>
+      <TR><TD><FONT COLOR="#E5533D">───</FONT></TD><TD ALIGN="LEFT">zrušení / zamítnutí / chyba</TD></TR>
+    </TABLE>>];
+  { rank=sink; LEGENDA; }
+
+  { rank=same; START; UC1; }
+  { rank=same; PENDING; CONFIRMED; }
+}
+@enddot

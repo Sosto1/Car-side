@@ -5,6 +5,8 @@
 ' (diagrams/sekvencni_tridy). Operace = zprávy, které objekt
 ' dané třídy v sekvenčních diagramech přijímá.
 ' Atributy: problémová doména + walking_skeleton.py, mock-data.js.
+' Výčtové typy (StavRezervace, Role …) jsou uvedené jen jako typy
+' atributů – jejich hodnoty jsou v dokumentaci.
 ' ============================================================
 skinparam defaultFontName Arial
 skinparam shadowing false
@@ -16,8 +18,8 @@ skinparam ClassHeaderBackgroundColor #F3F3F3
 skinparam StereotypeFontSize 11
 skinparam NoteBackgroundColor #FFFBE6
 skinparam NoteBorderColor #B5A642
-skinparam nodesep 60
-skinparam ranksep 70
+skinparam nodesep 50
+skinparam ranksep 60
 hide circle
 hide empty members
 
@@ -32,8 +34,6 @@ class Rezervace {
   - stav : StavRezervace
   - pocatecniKm : int
   - najeto : int
-  - {static} MAX_STANDARD_DNU : int = 3
-  - {static} MIN_DELKA_MIN : int = 30
   --
   + «create» Rezervace(u : Uzivatel, idVozidla : int, od : DateTime, do : DateTime)
   + odeslat() : StavRezervace
@@ -54,12 +54,9 @@ class Rezervace {
 
 class Uzivatel {
   - id : int
-  - kod : String
   - jmeno : String
   - email : String
   - telefon : String
-  - hesloHash : String
-  - resetToken : String
   - role : Role
   - canDrive : boolean
   --
@@ -79,10 +76,7 @@ class Vozidlo {
   - id : int
   - nazev : String
   - spz : String
-  - typ : String
-  - lokalita : String
   - stkPlatnaDo : Date
-  - zelenaKartaDo : Date
   - tachometr : int
   - palivo : int
   - stav : StavVozidla
@@ -99,8 +93,6 @@ class Vozidlo {
 class Vada {
   - id : int
   - popis : String
-  - nahlasil : String
-  - datum : DateTime
   - stav : StavVady
   --
   + «create» Vada(popis : String, nahlasil : String)
@@ -109,10 +101,8 @@ class Vada {
 
 class Odvolani {
   - text : String
-  - priloha : Soubor [0..1]
-  - datum : DateTime
+  - priloha : Soubor
   - stav : StavOdvolani
-  - {static} MAX_PRILOHA_MB : int = 2
   --
   + «create» Odvolani(text : String, priloha : Soubor)
   + getPriloha() : Soubor
@@ -137,54 +127,6 @@ class NotifikacniSluzba <<boundary>> {
   + odeslat(prijemce : String, zprava : String)
 }
 
-class Soubor <<datatype>> {
-  + nazev : String
-  + typ : String
-  + velikost : long
-  + data : byte[]
-}
-
-' ---------------- Výčtové typy ----------------
-
-enum StavRezervace <<enumeration>> {
-  DRAFT
-  PENDING
-  CONFIRMED
-  REJECTED
-  CANCELLED
-  IN_PROGRESS
-  COMPLETED
-}
-
-enum Kolize <<enumeration>> {
-  ZADNA
-  VOZIDLO
-  RIDIC
-}
-
-enum Role <<enumeration>> {
-  EMPLOYEE
-  MANAGER
-  ADMIN
-}
-
-enum StavVozidla <<enumeration>> {
-  DOSTUPNE
-  V_PROVOZU
-  MIMO_PROVOZ
-}
-
-enum StavVady <<enumeration>> {
-  OPEN
-  RESOLVED
-}
-
-enum StavOdvolani <<enumeration>> {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
 ' ---------------- Vztahy ----------------
 
 ' asociace (rezervace spojuje řidiče a vozidlo v čase)
@@ -204,22 +146,5 @@ Databaze "1" o-- "0..*" Rezervace
 Rezervace ..> NotifikacniSluzba : <<use>>
 Uzivatel ..> NotifikacniSluzba : <<use>>
 Vozidlo ..> NotifikacniSluzba : <<use>>
-
-Odvolani -[hidden]- Soubor
-
-' typy atributů (jen rozložení, typ je uveden u atributu)
-Rezervace -[hidden]- StavRezervace
-Rezervace -[hidden]- Kolize
-Uzivatel -[hidden]- Role
-Vozidlo -[hidden]- StavVozidla
-Vada -[hidden]- StavVady
-Odvolani -[hidden]- StavOdvolani
-
-note bottom of Rezervace
-  Invarianty:
-  • aktivní rezervace téhož vozidla se nepřekrývají
-  • řidič má v jednom čase max. 1 vozidlo
-  • délka <= 3 dny → CONFIRMED, jinak PENDING
-end note
 
 @enduml
