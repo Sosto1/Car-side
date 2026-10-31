@@ -1,0 +1,117 @@
+@startuml NV04_Adapter
+' ============================================================
+' NV04 – Návrhový vzor Adapter
+' (prezentace: GraphicEditor, Shape, LineShape, TextShape, TextView)
+' Databaze / NotifikacniSluzba = Shape (rozhraní, které klient očekává)
+' SqlDatabaze / EmailNotifikace = TextShape (adaptér)
+' sqlite3.Database / SmtpKlient = TextView (cizí nekompatibilní třída)
+' InMemoryDatabaze / MockNotifikace = LineShape (vlastní implementace)
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #222222
+skinparam ClassBackgroundColor #FFFFFF
+skinparam ClassBorderColor #222222
+skinparam ClassHeaderBackgroundColor #F3F3F3
+skinparam StereotypeFontSize 11
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+skinparam NoteFontSize 12
+skinparam nodesep 40
+skinparam ranksep 60
+hide circle
+hide empty members
+
+title NV04 – Návrhový vzor Adapter: databáze a e-mailová služba
+
+class Rezervace
+
+interface Databaze <<interface>> {
+  + najdiVozidlo(id : int) : Vozidlo
+  + najdiAktivniRezervace() : List<Rezervace>
+  + ulozRezervaci(r : Rezervace)
+}
+
+class InMemoryDatabaze {
+  + najdiVozidlo(id : int) : Vozidlo
+  + najdiAktivniRezervace() : List<Rezervace>
+  + ulozRezervaci(r : Rezervace)
+}
+
+class SqlDatabaze {
+  + najdiVozidlo(id : int) : Vozidlo
+  + najdiAktivniRezervace() : List<Rezervace>
+  + ulozRezervaci(r : Rezervace)
+}
+
+class "sqlite3.Database" as Sqlite <<external>> {
+  + get(sql, params, callback)
+  + all(sql, params, callback)
+  + run(sql, params, callback)
+}
+
+class EmailovyPozorovatel
+
+interface NotifikacniSluzba <<interface>> {
+  + odeslat(prijemce : String, zprava : String)
+}
+
+class MockNotifikace {
+  + odeslat(prijemce : String, zprava : String)
+}
+
+class EmailNotifikace <<boundary>> {
+  + odeslat(prijemce : String, zprava : String)
+}
+
+class SmtpKlient <<external>> {
+  + sendMail(od, komu, predmet, telo)
+}
+
+Rezervace --> "1" Databaze
+Databaze <|.. InMemoryDatabaze
+Databaze <|.. SqlDatabaze
+SqlDatabaze --> "1\ndb" Sqlite
+
+EmailovyPozorovatel --> "1" NotifikacniSluzba
+NotifikacniSluzba <|.. MockNotifikace
+NotifikacniSluzba <|.. EmailNotifikace
+EmailNotifikace --> "1\nklient" SmtpKlient
+
+note bottom of InMemoryDatabaze
+  Pro testy a walking
+  skeleton, bez SQLite.
+end note
+
+note bottom of MockNotifikace
+  Pro testy, žádný e-mail
+  se neodesílá.
+end note
+
+note bottom of Sqlite
+  Knihovna použitá v server.js.
+  Pracuje se SQL a callbacky,
+  doména o tom neví.
+end note
+
+note bottom of SmtpKlient
+  Cizí knihovna / služba.
+  Má jiné rozhraní než
+  NotifikacniSluzba.
+end note
+
+note right of SqlDatabaze
+  ulozRezervaci(r):
+    db.run("UPDATE reservations ...",
+           [r.stav.getNazev(), r.id], cb);
+end note
+
+note right of EmailNotifikace
+  odeslat(prijemce, zprava):
+    klient.sendMail(ODESILATEL, prijemce,
+                    "Car-side", zprava);
+    // chyba neblokuje rezervaci (ADR-04)
+end note
+
+@enduml

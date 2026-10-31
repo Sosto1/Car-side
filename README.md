@@ -32,6 +32,8 @@ Dokumentace projektu je rozdělena do strukturovaných souborů podle standardů
   - [Aktivitní diagramy](diagrams/aktivitni/) (Schvalování, převzetí vozu, správa účtů a vozidel)
   - [Stavové diagramy](diagrams/stavove/stavove_dokumentace.md) – Rezervace, Vozidlo, oprávnění řidiče (STD01–STD03, [PDF](diagrams/stavove/Stavove_diagramy.pdf))
   - [Třídní diagramy](diagrams/tridni_diagramy/tridni_dokumentace.md) – doménový model, role a rozhraní, balíčky (TD01–TD03, [PDF](diagrams/tridni_diagramy/Tridni_diagramy.pdf))
+  - [Architektura, MVC a deployment](diagrams/architektura/architektura_dokumentace.md) – architektura systému, MVC třídy, deployment model (AR01–AR05, [PDF](diagrams/architektura/Architektura_systemu.pdf))
+  - [Návrhové vzory](diagrams/navrhove_vzory/navrhove_vzory_dokumentace.md) – State, Chain of Responsibility, Observer, Adapter (NV01–NV06, [PDF](diagrams/navrhove_vzory/Navrhove_vzory.pdf))
 
 ---
 
@@ -137,6 +139,8 @@ Car-side/
 ├── diagrams/                           # UML diagramy a jejich dokumentace
 │   ├── usecase-diagram/                # Případy užití (Use Case diagramy a dokumentace)
 │   ├── sekvencni/                      # Původní sekvenční diagramy (bez tříd)
+│   ├── architektura/                   # Architektura, MVC a deployment AR01–AR05 (puml, png, svg, pdf)
+│   ├── navrhove_vzory/                 # Návrhové vzory NV01–NV06 (puml, png, svg, pdf)
 │   ├── sekvencni_tridy/                # Sekvenční diagramy s objekty tříd (puml, png, svg, pdf)
 │   ├── aktivitni/                      # Aktivitní diagramy schvalování, převzetí a správy
 │   ├── stavove/                        # Stavové diagramy STD01–STD03 (puml, png, svg, pdf)

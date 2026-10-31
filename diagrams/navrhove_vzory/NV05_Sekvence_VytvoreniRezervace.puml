@@ -1,0 +1,82 @@
+@startuml NV05_Sekvence_VytvoreniRezervace
+' ============================================================
+' NV05 – Vzory za běhu: odeslání nové rezervace
+' Chain of Responsibility (kontroly) + State (přechod z Konceptu)
+' Zpřesňuje sekvenční diagram SD01.
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam SequenceReferenceBackgroundColor #F3F3F3
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title NV05 – Odeslání rezervace: Chain of Responsibility + State
+
+actor "Zaměstnanec" as Z
+participant "__r:Rezervace__" as R
+participant "__s:Koncept__" as K
+participant "__:KontrolaTerminu__" as T
+participant "__:KontrolaRidice__" as D
+participant "__:KontrolaSTK__" as S
+participant "__:KontrolaDostupnosti__" as A
+participant "__p:Potvrzena__" as P
+participant "__c:CekaNaSchvaleni__" as C
+participant "__:Databaze__" as DB
+
+Z -> R : odeslat()
+activate R
+R -> K : odeslat()
+activate K
+
+K -> T : over(r)
+activate T
+T -> D : over(r)
+activate D
+D -> S : over(r)
+activate S
+S -> A : over(r)
+activate A
+A --> S : chyba
+deactivate A
+S --> D : chyba
+deactivate S
+D --> T : chyba
+deactivate D
+T --> K : chyba
+deactivate T
+note over T, A : Článek, který najde problém, vrátí text chyby a další kontroly\nse už nevolají. Když je vše v pořádku, vrátí se chyba = null.
+
+alt chyba <> null
+  K --> R : chyba
+  R --> Z : zamítnuto (důvod)
+  note right of R : stav zůstává Koncept,\nrezervace se neuloží
+else chyba = null
+  K -> R : delkaDni() : float
+  R --> K : delka
+  alt délka <= 3 dny
+    create P
+    K -> P : «create» Potvrzena(r)
+    K -> R : nastavStav(p)
+  else délka > 3 dny
+    create C
+    K -> C : «create» CekaNaSchvaleni(r)
+    K -> R : nastavStav(c)
+  end
+  R -> DB : ulozRezervaci(r)
+  ref over R, DB : Upozornění pozorovatelů: notify() – viz NV06
+  K --> R : hotovo
+  deactivate K
+  destroy K
+  R --> Z : nový stav rezervace
+end
+deactivate R
+
+@enduml

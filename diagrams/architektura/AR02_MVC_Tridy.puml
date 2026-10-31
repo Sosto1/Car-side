@@ -1,0 +1,146 @@
+@startuml AR02_MVC_Tridy
+' ============================================================
+' AR02 – MVC třídy (prezentace: MVC Classes + MVC Example)
+' Horní část = Framework Level (Model, View, Controller)
+' Dolní část = aplikace Car-side, část rezervací
+' RezervaceModel = Counter, SchvalovaniView = CounterView,
+' RezervaceController = CounterController
+' Ostatní části aplikace (vozidla, uživatelé) mají stejnou strukturu.
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #222222
+skinparam ClassBackgroundColor #FFFFFF
+skinparam ClassBorderColor #222222
+skinparam ClassHeaderBackgroundColor #F3F3F3
+skinparam PackageBackgroundColor #FFFFFF
+skinparam PackageBorderColor #777777
+skinparam StereotypeFontSize 11
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+skinparam NoteFontSize 12
+skinparam nodesep 45
+skinparam ranksep 60
+skinparam packageStyle rectangle
+hide circle
+hide empty members
+
+title AR02 – MVC třídy: webový klient, část rezervací
+
+package "Framework Level" {
+  abstract class Model {
+    + addObserver(observer : View)
+    + removeObserver(observer : View)
+    + notify()
+  }
+
+  abstract class View {
+    + update()
+    + {abstract} display()
+  }
+
+  abstract class Controller {
+    + onSubmit(ev : Event)
+    + onClick(akce : String, id : int)
+  }
+
+  note top of Model
+    notify():
+      for (View view : observers)
+        view.update();
+  end note
+
+  note top of View
+    update():
+      display();
+  end note
+
+  note top of Controller
+    <b>Klientský kód:</b>
+    RezervaceModel model = new RezervaceModel(new ApiKlient());
+    SchvalovaniView view = new SchvalovaniView(model);
+    model.addObserver(view);
+    RezervaceController controller =
+      new RezervaceController(model, view);
+    controller.onClick("schvalit", 42);
+  end note
+}
+
+package "Application Level" {
+  class RezervaceModel {
+    - rezervace : List<Object>
+    - chyba : String
+    + nacti()
+    + getRezervace(email : String) : List<Object>
+    + getCekajici() : List<Object>
+    + getChyba() : String
+    + vytvor(data : Object)
+    + schvalit(id : int)
+    + zamitnout(id : int)
+    + zrusit(id : int)
+  }
+
+  class KalendarView {
+    + display()
+  }
+
+  class MojeRezervaceView {
+    + display()
+  }
+
+  class SchvalovaniView {
+    + display()
+  }
+
+  class RezervaceController {
+    + onSubmit(ev : Event)
+    + onClick(akce : String, id : int)
+  }
+
+  class ApiKlient {
+    + getRezervace() : List<Object>
+    + postRezervace(data : Object) : Object
+    + putStav(id : int, akce : String) : Object
+  }
+
+  note bottom of RezervaceModel
+    schvalit(id):
+      výsledek = await api.putStav(id, "CONFIRM");
+      aktualizuje rezervaci nebo uloží chybu;
+      this.notify();
+  end note
+
+  note bottom of SchvalovaniView
+    display():
+      seznam = model.getCekajici();
+      vykreslí seznam a případnou
+      chybu z model.getChyba();
+  end note
+
+  note bottom of RezervaceController
+    onClick(akce, id):
+      if (akce == "schvalit")
+        model.schvalit(id);
+  end note
+
+  note bottom of ApiKlient
+    fetch(".../api/reservations")
+    Jediná třída klienta,
+    která zná adresu serveru.
+  end note
+}
+
+Model "1\nmodel" <--> "0..*\nobserver" View
+Controller --> "1\nmodel" Model
+Controller --> "1\nview" View
+
+Model <|-- RezervaceModel
+View <|-- KalendarView
+View <|-- MojeRezervaceView
+View <|-- SchvalovaniView
+Controller <|-- RezervaceController
+
+RezervaceModel --> "1\napi" ApiKlient
+
+@enduml

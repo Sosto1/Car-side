@@ -1,0 +1,85 @@
+@startuml AR03_MVC_Sekvence
+' ============================================================
+' AR03 – MVC za běhu: schválení rezervace přes celý systém
+' Klient podle AR02, zpracování na serveru je v NV06.
+' Endpoint PUT /api/reservations/{id}/status je v návrhu,
+' server.js ho zatím nemá.
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam BoundaryBackgroundColor #FFFFFF
+skinparam BoundaryBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam SequenceReferenceBackgroundColor #F3F3F3
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title AR03 – Schválení rezervace: Controller → Model → View
+
+actor "Správce\nvozového parku" as S
+participant "__c:RezervaceController__" as C
+participant "__m:RezervaceModel__" as M
+participant "__v:SchvalovaniView__" as V
+participant "__k:KalendarView__" as K
+participant "__a:ApiKlient__" as A
+boundary "__:RestApi__\n«server»" as API
+
+S -> C : onClick("schvalit", id)
+activate C
+C -> M : schvalit(id)
+activate M
+M -> A : putStav(id, "CONFIRM")
+activate A
+A -> API : PUT /api/reservations/{id}/status
+activate API
+ref over API : Zpracování na serveru: NV06\n(State + Observer + Adapter)
+
+alt stav změněn
+  API --> A : 200 {stav: "CONFIRMED"}
+  A --> M : rezervace
+  M -> M : aktualizuje rezervaci
+else nepovolená operace
+  API --> A : 409 {chyba}
+  deactivate API
+  A --> M : chyba
+  deactivate A
+  M -> M : uloží chybu
+end
+
+M -> M : notify()
+activate M
+
+M -> V : update()
+activate V
+V -> V : display()
+V -> M : getCekajici()
+M --> V : seznam
+deactivate V
+
+M -> K : update()
+activate K
+K -> K : display()
+K -> M : getRezervace(email)
+M --> K : seznam
+deactivate K
+
+deactivate M
+deactivate M
+deactivate C
+
+V --> S : aktualizovaná obrazovka
+
+note over C, M
+  Controller nic nevykresluje a Model nezná
+  konkrétní obrazovky. Všechny View se obnoví
+  samy přes notify().
+end note
+
+@enduml

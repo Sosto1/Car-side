@@ -1,0 +1,99 @@
+@startuml NV02_ChainOfResponsibility
+' ============================================================
+' NV02 – Návrhový vzor Chain of Responsibility
+' (prezentace: HelpHandler, Application, Dialog, Button)
+' KontrolaRezervace = HelpHandler, over() = handleHelp()
+' Řetěz = kontroly ze sekvenčního diagramu SD01 (ve stejném pořadí).
+' KontrolaNabiti = Future Pressure C (elektromobily), ADR-05.
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #222222
+skinparam ClassBackgroundColor #FFFFFF
+skinparam ClassBorderColor #222222
+skinparam ClassHeaderBackgroundColor #F3F3F3
+skinparam StereotypeFontSize 11
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+skinparam NoteFontSize 12
+skinparam nodesep 35
+skinparam ranksep 60
+hide circle
+hide empty members
+
+title NV02 – Návrhový vzor Chain of Responsibility: ověření rezervace
+
+class Koncept {
+  + odeslat()
+}
+
+abstract class KontrolaRezervace {
+  + «create» KontrolaRezervace(dalsi : KontrolaRezervace)
+  + over(r : Rezervace) : String
+}
+
+class Rezervace
+
+class KontrolaTerminu {
+  + over(r : Rezervace) : String
+}
+
+class KontrolaRidice {
+  + over(r : Rezervace) : String
+}
+
+class KontrolaSTK {
+  + over(r : Rezervace) : String
+}
+
+class KontrolaNabiti <<future>> {
+  + over(r : Rezervace) : String
+}
+
+class KontrolaDostupnosti {
+  + over(r : Rezervace) : String
+}
+
+Koncept --> "1\nkontroly" KontrolaRezervace
+KontrolaRezervace --> "0..1\ndalsi" KontrolaRezervace
+KontrolaRezervace ..> Rezervace : <<use>>
+
+KontrolaRezervace <|-- KontrolaTerminu
+KontrolaRezervace <|-- KontrolaRidice
+KontrolaRezervace <|-- KontrolaSTK
+KontrolaRezervace <|-- KontrolaNabiti
+KontrolaRezervace <|-- KontrolaDostupnosti
+
+note left of Koncept
+  <b>Klientský kód:</b>
+  KontrolaRezervace k = new KontrolaDostupnosti(null);
+  k = new KontrolaSTK(k);
+  k = new KontrolaRidice(k);
+  k = new KontrolaTerminu(k);
+  String chyba = k.over(rezervace);
+  // null = všechny kontroly prošly
+end note
+
+note left of KontrolaRezervace
+  over(r):
+    if (dalsi != null) return dalsi.over(r);
+    return null; // konec řetězu, vše v pořádku
+end note
+
+note bottom of KontrolaRidice
+  over(r):
+    if (!r.ridic.muzeRidit())
+      return "Pozastavené oprávnění";
+    return super.over(r);
+end note
+
+note bottom of KontrolaNabiti
+  Elektromobil se přidá jako
+  nový článek řetězu mezi STK
+  a dostupnost. Vozidla bez
+  baterie kontrola jen propustí.
+  Ostatní kontroly se nemění.
+end note
+
+@enduml

@@ -1,0 +1,101 @@
+@startuml NV03_Observer
+' ============================================================
+' NV03 – Návrhový vzor Observer
+' (prezentace: Subject, Observer, StockMarket, TextView, BarChart)
+' Rezervace = StockMarket, EmailovyPozorovatel + AuditniLog = TextView + BarChart
+' nastavStav() = changeData()
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #222222
+skinparam ClassBackgroundColor #FFFFFF
+skinparam ClassBorderColor #222222
+skinparam ClassHeaderBackgroundColor #F3F3F3
+skinparam StereotypeFontSize 11
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+skinparam NoteFontSize 12
+skinparam nodesep 45
+skinparam ranksep 60
+hide circle
+hide empty members
+
+title NV03 – Návrhový vzor Observer: reakce na změnu stavu rezervace
+
+abstract class Subjekt {
+  + attach(o : PozorovatelRezervace)
+  + detach(o : PozorovatelRezervace)
+  + notify()
+}
+
+interface PozorovatelRezervace <<interface>> {
+  + update(r : Rezervace)
+}
+
+class Rezervace {
+  + getStav() : StavRezervace
+  + nastavStav(s : StavRezervace)
+}
+
+class EmailovyPozorovatel {
+  + update(r : Rezervace)
+}
+
+class AuditniLog {
+  - zaznamy : List<String>
+  + update(r : Rezervace)
+}
+
+interface NotifikacniSluzba <<interface>> {
+  + odeslat(prijemce : String, zprava : String)
+}
+
+interface Databaze <<interface>> {
+  + ulozRezervaci(r : Rezervace)
+  + najdiUzivatele(role : Role) : List<Uzivatel>
+}
+
+Subjekt "1" --> "0..*\npozorovatele" PozorovatelRezervace
+Subjekt <|-- Rezervace
+PozorovatelRezervace <|.. EmailovyPozorovatel
+PozorovatelRezervace <|.. AuditniLog
+
+EmailovyPozorovatel --> "1" NotifikacniSluzba
+EmailovyPozorovatel ..> Databaze : <<use>>
+Rezervace ..> Databaze : <<use>>
+
+note left of Subjekt
+  notify():
+    for (všichni pozorovatele)
+      o.update(this);
+end note
+
+note left of Rezervace
+  nastavStav(s):
+    stav = s;
+    databaze.ulozRezervaci(this);
+    notify();
+end note
+
+note right of PozorovatelRezervace
+  <b>Klientský kód:</b>
+  Rezervace r = new Rezervace(u, idVozidla, od, do);
+  r.attach(new EmailovyPozorovatel(sluzba, databaze));
+  r.attach(new AuditniLog());
+  r.odeslat(); // změna stavu: oba pozorovatelé se ji dozví
+end note
+
+note bottom of EmailovyPozorovatel
+  update(r):
+    podle r.getStav() sestaví zprávu pro řidiče;
+    při PENDING navíc všem správcům (SD01).
+end note
+
+note bottom of AuditniLog
+  update(r):
+    zapíše změnu stavu
+    do systémového protokolu.
+end note
+
+@enduml

@@ -1,0 +1,60 @@
+@startuml AR05_Nasazeni_Cilove
+' ============================================================
+' AR05 – Deployment diagram: cílový stav (prezentace: Deployment Diagram)
+' Stejné stereotypy jako v přednášce: «workstation», «network»,
+' «application server», «SQL server».
+' PostgreSQL podle plánu CP5 v README.
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam NodeBackgroundColor #FFFFFF
+skinparam NodeBorderColor #222222
+skinparam ArtifactBackgroundColor #FFFFFF
+skinparam ArtifactBorderColor #222222
+skinparam StereotypeFontSize 11
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+skinparam nodesep 50
+skinparam ranksep 60
+
+title AR05 – Deployment diagram: cílový stav
+
+node "Zaměstnanec\nprohlížeč" <<workstation>> as Z
+node "Správce vozového parku\nprohlížeč" <<workstation>> as S
+node "Administrátor\nprohlížeč" <<workstation>> as A
+
+node "LAN firmy" <<network>> as LAN
+
+node "Aplikační server" <<application server>> as APP {
+  artifact "Webový klient\nindex.html, app.js, style.css" as WEB
+  artifact "Node.js + Express\nREST API a doménové jádro" as REST
+}
+
+node "Databázový server" <<SQL server>> as DBS {
+  artifact "PostgreSQL\nCar-side databáze" as DB
+}
+
+node "Internet" <<network>> as NET
+
+node "E-mailová služba" <<external system>> as MAIL
+
+Z -- LAN
+S -- LAN
+A -- LAN
+LAN -- APP : HTTPS
+APP -- DBS : TCP/IP, SQL
+APP -- NET
+NET -- MAIL : SMTP
+
+note right of APP
+  Soubory klienta i REST API poskytuje jeden
+  server, odpadá Python server na portu 8000.
+end note
+
+note right of MAIL
+  Odesílání je fire-and-forget:
+  výpadek neblokuje rezervace (ADR-04).
+end note
+
+@enduml

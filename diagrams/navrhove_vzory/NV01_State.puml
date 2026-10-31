@@ -1,0 +1,168 @@
+@startuml NV01_State
+' ============================================================
+' NV01 – Návrhový vzor State (prezentace: TCPConnection)
+' Rezervace = Context (TCPConnection)
+' StavRezervace = State
+' Koncept, CekaNaSchvaleni, ... = Listening, Established, Closed
+' Přechody odpovídají stavovému diagramu STD01.
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #222222
+skinparam ClassBackgroundColor #FFFFFF
+skinparam ClassBorderColor #222222
+skinparam ClassHeaderBackgroundColor #F3F3F3
+skinparam StereotypeFontSize 11
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+skinparam NoteFontSize 12
+skinparam nodesep 25
+skinparam ranksep 55
+hide circle
+hide empty members
+
+title NV01 – Návrhový vzor State: stavy rezervace
+
+class Rezervace {
+  + nastavStav(s : StavRezervace)
+  + odeslat()
+  + schvalit()
+  + zamitnout()
+  + zmenitTermin(od : DateTime, do : DateTime)
+  + zrusit()
+  + prevzit(km : int, palivo : int)
+  + vratit(km : int, palivo : int)
+}
+
+abstract class StavRezervace {
+  + {static} zNazvu(nazev : String, r : Rezervace) : StavRezervace
+  + {abstract} getNazev() : String
+  + odeslat()
+  + schvalit()
+  + zamitnout()
+  + zmenitTermin(od : DateTime, do : DateTime)
+  + zrusit()
+  + prevzit(km : int, palivo : int)
+  + vratit(km : int, palivo : int)
+}
+
+class Koncept {
+  + getNazev() : String
+  + odeslat()
+}
+
+class CekaNaSchvaleni {
+  + getNazev() : String
+  + schvalit()
+  + zamitnout()
+  + zrusit()
+}
+
+class Potvrzena {
+  + getNazev() : String
+  + zmenitTermin(od : DateTime, do : DateTime)
+  + zrusit()
+  + prevzit(km : int, palivo : int)
+}
+
+class Probiha {
+  + getNazev() : String
+  + vratit(km : int, palivo : int)
+}
+
+class Dokoncena {
+  + getNazev() : String
+}
+
+class Zamitnuta {
+  + getNazev() : String
+}
+
+class Zrusena {
+  + getNazev() : String
+}
+
+Rezervace "1\ncontext" <--> "1\nstav" StavRezervace
+
+StavRezervace <|-- Koncept
+StavRezervace <|-- CekaNaSchvaleni
+StavRezervace <|-- Potvrzena
+StavRezervace <|-- Probiha
+StavRezervace <|--- Dokoncena
+StavRezervace <|--- Zamitnuta
+StavRezervace <|--- Zrusena
+
+note left of Rezervace
+  <b>Klientský kód:</b>
+  Rezervace r = new Rezervace(u, idVozidla, od, do);
+  // konstruktor nastaví počáteční stav: stav = new Koncept(this)
+  r.odeslat();  // Koncept -> CekaNaSchvaleni (délka > 3 dny)
+  r.schvalit(); // CekaNaSchvaleni -> Potvrzena
+  r.zrusit();   // Potvrzena -> Zrusena
+  ----
+  <b>Rezervace jen předá volání stavu:</b>
+  schvalit() { stav.schvalit(); }
+end note
+
+note right of StavRezervace
+  <b>Výchozí chování všech operací:</b>
+  chyba „ve stavu X nelze provést“.
+  Podtřída přepíše jen to, co je
+  v jejím stavu povolené (STD01).
+  ----
+  zNazvu("PENDING", r) vytvoří stav
+  ze sloupce status v databázi.
+end note
+
+note bottom of Koncept
+  odeslat():
+    if (kontroly selhaly) chyba
+    else if (délka <= 3 dny)
+      context.nastavStav(
+        new Potvrzena(context))
+    else
+      context.nastavStav(
+        new CekaNaSchvaleni(context))
+end note
+
+note bottom of CekaNaSchvaleni
+  schvalit():
+    context.nastavStav(
+      new Potvrzena(context))
+  zamitnout():
+    context.nastavStav(
+      new Zamitnuta(context))
+  zrusit():
+    context.nastavStav(
+      new Zrusena(context))
+end note
+
+note bottom of Potvrzena
+  zmenitTermin(od, do):
+    if (kolize) chyba, stav beze změny
+    else if (délka > 3 dny)
+      context.nastavStav(
+        new CekaNaSchvaleni(context))
+    else
+      context.nastavStav(new Potvrzena(context))
+  zrusit():
+    context.nastavStav(new Zrusena(context))
+  prevzit(km, palivo):
+    if (teď mimo termín) chyba
+    else context.nastavStav(new Probiha(context))
+end note
+
+note bottom of Probiha
+  vratit(km, palivo):
+    context.nastavStav(
+      new Dokoncena(context))
+end note
+
+note bottom of Zamitnuta
+  Koncové stavy: žádná operace
+  není povolená, platí výchozí
+  chyba ze StavRezervace.
+end note
+
+@enduml

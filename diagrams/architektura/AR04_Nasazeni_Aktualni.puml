@@ -1,0 +1,58 @@
+@startuml AR04_Nasazeni_Aktualni
+' ============================================================
+' AR04 – Deployment diagram: současný stav (jeden počítač)
+' Podle kódu: src/app.py (port 8000), server/server.js (port 3000),
+' database.sqlite, src/app.js (fetch, localStorage).
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam NodeBackgroundColor #FFFFFF
+skinparam NodeBorderColor #222222
+skinparam ArtifactBackgroundColor #FFFFFF
+skinparam ArtifactBorderColor #222222
+skinparam DatabaseBackgroundColor #FFFFFF
+skinparam DatabaseBorderColor #222222
+skinparam StereotypeFontSize 11
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+skinparam nodesep 60
+skinparam ranksep 70
+
+title AR04 – Deployment diagram: současný stav
+
+node "Počítač uživatele (localhost)" <<workstation>> {
+
+  node "Webový prohlížeč" <<execution environment>> as B {
+    artifact "index.html, style.css\nmock-data.js, app.js" as WEB
+    database "localStorage" as LS
+    WEB --> LS : data aplikace
+
+    note bottom of LS
+      Změny z aplikace se ukládají jen sem,
+      do databáze se nezapisují. Po obnovení
+      stránky je přepíšou data z API.
+    end note
+  }
+
+  node "Python: src/app.py\nport 8000" <<web server>> as PY {
+    artifact "src/*\nstatické soubory" as SRC
+  }
+
+  node "Node.js: server/server.js\nport 3000" <<application server>> as NODE {
+    artifact "REST API\nExpress, cors, sqlite3" as REST
+
+    note bottom of REST
+      POST /api/reservations existuje,
+      ale app.js ho zatím nevolá.
+    end note
+  }
+
+  database "database.sqlite" as DB
+}
+
+B --> PY : soubory aplikace\n(HTTP GET)
+B --> NODE : data z databáze\n(HTTP GET /api/...)
+NODE --> DB : sqlite3\n(soubor)
+
+@enduml

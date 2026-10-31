@@ -1,0 +1,79 @@
+@startuml NV06_Sekvence_SchvaleniRezervace
+' ============================================================
+' NV06 – Vzory za běhu: schválení rezervace správcem
+' State (přechod) + Observer (upozornění) + Adapter (e-mail, SQLite)
+' Zpřesňuje sekvenční diagram SD03.
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam BoundaryBackgroundColor #FFFFFF
+skinparam BoundaryBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title NV06 – Schválení rezervace: State + Observer + Adapter
+
+actor "Správce\nvozového parku" as M
+participant "__r:Rezervace__" as R
+participant "__s:CekaNaSchvaleni__" as C
+participant "__p:Potvrzena__" as P
+participant "__d:SqlDatabaze__" as DB
+participant "__sqlite:sqlite3.Database__" as SQL
+participant "__log:AuditniLog__" as L
+participant "__mail:EmailovyPozorovatel__" as O
+boundary "__e:EmailNotifikace__" as E
+participant "__klient:SmtpKlient__" as K
+
+== Povolená operace ve stavu CekaNaSchvaleni ==
+
+M -> R : schvalit()
+activate R
+R -> C : schvalit()
+activate C
+create P
+C -> P : «create» Potvrzena(r)
+C -> R : nastavStav(p)
+activate R
+R -> DB : ulozRezervaci(r)
+activate DB
+DB -> SQL : run("UPDATE reservations ...", params, cb)
+deactivate DB
+R -> R : notify()
+activate R
+R -> L : update(r)
+R -> O : update(r)
+activate O
+O -> E : odeslat(ridic.email, "Rezervace schválena")
+activate E
+E -> K : sendMail(ODESILATEL, ridic.email, "Car-side", text)
+deactivate E
+deactivate O
+deactivate R
+deactivate R
+C --> R : hotovo
+deactivate C
+destroy C
+R --> M : CONFIRMED
+deactivate R
+
+== Nepovolená operace: rezervace je už ve stavu Potvrzena ==
+
+M -> R : zamitnout()
+activate R
+R -> P : zamitnout()
+activate P
+note right of P : Potvrzena tuto operaci nepřepisuje,\nplatí výchozí chování ze StavRezervace.
+P --> R : chyba „ve stavu CONFIRMED nelze provést“
+deactivate P
+R --> M : chyba, stav se nemění
+deactivate R
+
+@enduml

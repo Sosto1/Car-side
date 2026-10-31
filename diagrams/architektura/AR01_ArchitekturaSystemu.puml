@@ -1,0 +1,94 @@
+@startuml AR01_ArchitekturaSystemu
+' ============================================================
+' AR01 – Architektura celého systému (cílový návrh)
+' Komponenty, jejich vztahy a okolí systému.
+' Klient je rozdělený podle MVC (AR02), server podle hexagonální
+' architektury z docs/architecture-and-decisions.md (ADR-01).
+' V doméně jsou vyznačené návrhové vzory z NV01–NV04.
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam ComponentBackgroundColor #FFFFFF
+skinparam ComponentBorderColor #222222
+skinparam InterfaceBackgroundColor #FFFFFF
+skinparam InterfaceBorderColor #222222
+skinparam PackageBackgroundColor #FFFFFF
+skinparam PackageBorderColor #222222
+skinparam DatabaseBackgroundColor #FFFFFF
+skinparam DatabaseBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam StereotypeFontSize 11
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+skinparam nodesep 45
+skinparam ranksep 50
+skinparam packageStyle rectangle
+
+title AR01 – Architektura systému Car-side
+
+actor "Zaměstnanec\nSprávce\nAdministrátor" as U
+
+package "Webový klient (prohlížeč)" {
+  component "View\nkalendář, seznamy, formuláře" as V
+  component "Controller\nobsluha událostí" as C
+  component "Model klienta\ndata pro zobrazení" as M
+  component "ApiKlient\nvolání REST API" as AK
+}
+
+package "Aplikační server (Node.js)" {
+  component "REST API\nExpress, /api/..." as API
+
+  package "Doménové jádro" {
+    component "Rezervace a stavy\n«State»" as R
+    component "Kontroly rezervace\n«Chain of Responsibility»" as K
+    component "Pozorovatelé\n«Observer»" as O
+    component "Vozidla, vady,\nuživatelé, odvolání" as D
+  }
+
+  component "Databaze" <<interface>> as PD
+  component "NotifikacniSluzba" <<interface>> as PN
+
+  package "Adaptéry «Adapter»" {
+    component "SqlDatabaze" as AD
+    component "EmailNotifikace" as AE
+  }
+}
+
+database "SQL databáze" as DB
+component "E-mailová služba" <<external>> as MAIL
+component "Telemetrie vozidel" <<future>> as TEL
+
+U --> V : čte
+U --> C : ovládá
+C --> M : volá
+M --> V : upozorní (notify)
+V --> M : čte data
+M --> AK
+AK --> API : HTTP, JSON
+
+API --> R
+API --> D
+R --> K : ověření
+R --> O : změna stavu
+R --> D
+R --> PD
+O --> PN
+D --> PD
+D --> PN
+K --> PD : dostupnost
+
+AD .up.|> PD
+AE .up.|> PN
+AD --> DB : SQL
+AE --> MAIL : SMTP
+TEL ..> API : odečet km, baterie
+
+note right of TEL
+  Budoucí hranice systému
+  (OBD-II / GPS). Zatím
+  není rozhodnuto.
+end note
+
+@enduml
