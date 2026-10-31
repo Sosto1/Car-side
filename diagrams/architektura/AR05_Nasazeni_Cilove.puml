@@ -47,10 +47,6 @@ APP -- DBS : TCP/IP, SQL
 APP -- NET
 NET -- MAIL : SMTP
 
-note right of APP
-  Soubory klienta i REST API poskytuje jeden
-  server, odpadá Python server na portu 8000.
-end note
 
 note right of MAIL
   Odesílání je fire-and-forget:
