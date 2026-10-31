@@ -106,11 +106,12 @@ python src/walking_skeleton.py
 
 Aplikace obsahuje plně funkční klientské rozhraní s kalendářem, interaktivním formulářem, schvalovací konzolí i správou vozového parku.
 
-### Spuštění lokálního serveru:
+### Spuštění lokálního serveru s databází:
 ```bash
-python src/app.py
+node .\server\server.js
+python .\src\app.py
 ```
-Skript automaticky spustí HTTP server a otevře aplikaci v prohlížeči na adrese **`http://localhost:8000`**.
+Skript automaticky spustí HTTP server a REST API s databází a otevře aplikaci v prohlížeči na adrese **`http://localhost:8000`**.
 
 ### Interaktivní průchod aplikací:
 1. **Přihlášení:** V pravém horním rohu klikněte na *Přihlásit se* a využijte demo účet:

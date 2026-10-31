@@ -12,6 +12,42 @@ let currentUser = loadSession();
 let fleetTimerInterval = null;
 let stkActiveFilter = "ALL";
 
+// Načtení všech dat z REST API serveru (vozidla, uživatelé, rezervace)
+async function loadDataFromApi() {
+  try {
+    // 1. Načtení vozidel
+    const resVehicles = await fetch('http://localhost:3000/api/vehicles');
+    if (resVehicles.ok) {
+      const vehiclesData = await resVehicles.json();
+      if (vehiclesData && vehiclesData.length > 0) {
+        db.vehicles = vehiclesData;
+      }
+    }
+
+    // 2. Načtení uživatelů
+    const resUsers = await fetch('http://localhost:3000/api/users');
+    if (resUsers.ok) {
+      const usersData = await resUsers.json();
+      if (usersData && usersData.length > 0) {
+        db.users = usersData;
+      }
+    }
+
+    // 3. Načtení rezervací
+    const resReservations = await fetch('http://localhost:3000/api/reservations');
+    if (resReservations.ok) {
+      const reservationsData = await resReservations.json();
+      if (reservationsData && reservationsData.length > 0) {
+        db.reservations = reservationsData;
+      }
+    }
+
+    console.log("Všechna data byla úspěšně stažena z databáze!");
+  } catch (err) {
+    console.warn("API server nedostupný, používám lokální data:", err);
+  }
+}
+
 function loadDb() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
@@ -1795,7 +1831,9 @@ function renderLog() {
   el.scrollTop = el.scrollHeight;
 }
 
-renderAll();
+loadDataFromApi().then(() => {
+  renderAll();
+});
 
 // posun čáry „teď“ v kalendáři (každou minutu, pokud uživatel právě nic nevybírá)
 setInterval(() => {
