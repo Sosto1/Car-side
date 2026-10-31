@@ -163,5 +163,6 @@ Car-side/
 - [x] **CP1:** Walking Skeleton – ověření doménových invariantů, překryvů a notifikací.
 - [x] **CP2:** Model rolí a autorizace (Employee / Manager / Admin).
 - [x] **CP3 / CP4:** Webové rozhraní, interaktivní kalendář obsazenosti (Timetable), evidence STK a vad.
-- [ ] **CP5:** Přechod na trvalou SQL databázi (PostgreSQL), REST API a autentizace tokeny.
+- [x] **CP5:** Přechod na trvalou SQL databázi (node.js), REST API
+- [ ] **CP5:** Autentizace tokeny.
 - [ ] **Budoucí rozšíření:** Integrace IoT telemetrie (GPS, odečet tachometru) a správa dobíjení elektromobilů dle *Future Pressure C*.
