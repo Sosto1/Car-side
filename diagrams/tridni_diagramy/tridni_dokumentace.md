@@ -1,112 +1,97 @@
 # Třídní diagramy – Car-side
 
-Třídní diagramy navazují na [sekvenční diagramy SD01–SD08](../sekvencni_tridy/sekvencni_dokumentace.md)
+Třídní diagramy navazují na [sekvenční diagramy SD01–SD10](../sekvencni_tridy/sekvencni_dokumentace.md)
 a jsou vytvořené postupem z přednášky *Software Engineering*:
 
-- **třídy** se hledají v sekvenčních diagramech – každý objekt (`r:Rezervace`, `v:Vozidlo` …) je instancí jedné třídy,
-- **operace** třídy = zprávy, které objekt dané třídy v sekvenčních diagramech přijímá,
-- **atributy** pochází z problémové domény a z kódu ([walking_skeleton.py](../../src/walking_skeleton.py), [mock-data.js](../../src/mock-data.js)),
-- **vztahy** vyplývají z toho, kdo komu posílá zprávy (objekt může poslat zprávu jen tomu, s kým má vazbu).
+- **třídy** se hledají v sekvenčních diagramech – každý objekt (`rs:ReservationService`, `fs:FleetService` …) je instancí jedné třídy,
+- **operace** třídy = zprávy, které objekt dané třídy v sekvenčních diagramech přijímá (v diagramu jsou ty hlavní),
+- **atributy** pochází z dat aplikace ([mock-data.js](../../src/mock-data.js)),
+- **vztahy** vyplývají z toho, kdo s kým pracuje (služba spravuje data, rezervace odkazuje na vozidlo a řidiče …).
+
+**Pojmenování:** třídy jsou v diagramech pojmenované **česky**, pod názvem je ve «» uvedeno, jak se třída
+jmenuje v kódu. Atributy a metody jsou zapsané přesně podle kódu, aby šly dohledat
+a odpovídaly sekvenčním diagramům.
 
 | Diagram | Pohled | Soubor |
 |---|---|---|
-| TD01 | Doménový model (analýza) | [TD01_DomenovyModel.puml](TD01_DomenovyModel.puml) |
-| TD02 | Role, rozhraní a rozšíření (návrh) | [TD02_RoleRozhrani.puml](TD02_RoleRozhrani.puml) |
-| TD03 | Balíčkový diagram | [TD03_Balicky.puml](TD03_Balicky.puml) |
+| TD01 | Třídní diagram systému – služby a data | [TD01_TridniDiagramSystemu.puml](TD01_TridniDiagramSystemu.puml) |
+| TD02 | Ukládání a načítání dat – prohlížeč, server, databáze | [TD02_UkladaniDat.puml](TD02_UkladaniDat.puml) |
 
 ---
 
-## TD01 – Doménový model
+## TD01 – Třídní diagram systému
 
-Obsahuje jen 7 navzájem propojených tříd ze sekvenčních diagramů (`Rezervace`, `Uzivatel`, `Vozidlo`, `Vada`,
-`Odvolani`, `Databaze`, `NotifikacniSluzba`) s nejdůležitějšími atributy. Výčtové typy a datový typ `Soubor`
-nejsou kresleny jako samostatné bloky – vystupují jen jako typy atributů a jejich hodnoty jsou uvedené níže.
+### Třídy
 
-| Vztah | Typ | Násobnost | Proč |
+| Třída v diagramu | Třída v kódu | Soubor | K čemu slouží |
 |---|---|---|---|
-| Rezervace → Uzivatel (*ridic*) | asociace | `0..*` : `1` | každá rezervace má právě jednoho řidiče, řidič může mít více rezervací (ne ve stejném čase) |
-| Rezervace → Vozidlo (*vozidlo*) | asociace | `0..*` : `1` | rezervace se týká jednoho vozidla, vozidlo má více rezervací v různých termínech |
-| Vozidlo ◆— Vada | kompozice | `1` : `0..*` | vada nemůže existovat bez vozidla, vzniká přes `Vozidlo.nahlasVadu()` (SD06) |
-| Uzivatel ◆— Odvolani | kompozice | `1` : `0..1` | uživatel má nejvýš jedno aktuální odvolání, vzniká přes `Uzivatel.podatOdvolani()` (SD07) |
-| Databaze ◇— Uzivatel / Vozidlo / Rezervace | agregace | `1` : `0..*` | databáze objekty sdružuje, ale nevlastní je výhradně (jako `CarDatabase ◇ Car` v přednášce) |
-| Rezervace / Uzivatel / Vozidlo ⇢ NotifikacniSluzba | závislost «use» | – | jen volají `odeslat()`, neuchovávají si ji (fire-and-forget, ADR-04) |
+| **SlužbaRezervací** | `ReservationService` | [services.js](../../src/services.js) | vytvoření rezervace, kontrola kolizí, schválení / zamítnutí / zrušení |
+| **SprávaVozidel** | `FleetService` | services.js | přidání, úprava a odebrání vozidla, hlášení a řešení vad |
+| **SprávaUživatelů** | `UserService` | services.js | účty uživatelů, odvolání proti zákazu řízení |
+| **Přihlášení** | `AuthService` | services.js | přihlášení a obnova hesla |
+| **NotifikačníSlužba** | `NotificationService` | services.js | oznámení uživatelům (panel „Oznámení“) |
+| **Rezervace** | `Reservation` | [mock-data.js](../../src/mock-data.js) | rezervace vozidla v termínu `start`–`end` |
+| **Vozidlo** | `Vehicle` | mock-data.js | vozidlo – SPZ, platnost STK, najeté km |
+| **Vada** | `Defect` | mock-data.js | vada nahlášená na vozidle |
+| **Uživatel** | `User` | mock-data.js | zaměstnanec / správce / administrátor |
+| **Odvolání** | `Appeal` | mock-data.js | žádost o obnovení oprávnění k řízení |
 
-Typy použité u atributů:
+Datové třídy (Rezervace, Vozidlo, Vada, Uživatel, Odvolání) jsou v kódu obyčejné objekty bez metod –
+veškerou práci s nimi dělají služby. V diagramu jsou uvedeny jen nejdůležitější atributy.
 
-| Typ | Hodnoty |
-|---|---|
-| `StavRezervace` | DRAFT, PENDING, CONFIRMED, REJECTED, CANCELLED, IN_PROGRESS, COMPLETED |
-| `StavVozidla` | DOSTUPNE, V_PROVOZU, MIMO_PROVOZ |
-| `StavVady` | OPEN, RESOLVED |
-| `StavOdvolani` | PENDING, APPROVED, REJECTED |
-| `Role` | EMPLOYEE, MANAGER, ADMIN |
-| `Kolize` (výsledek SD02) | ZADNA, VOZIDLO, RIDIC |
-| `Soubor` | příloha odvolání – název, typ, velikost (max. 2 MB), data |
+### Vztahy
 
-Invarianty rezervace: aktivní rezervace téhož vozidla se nepřekrývají, řidič má v jednom čase max. 1 vozidlo,
-délka ≤ 3 dny → CONFIRMED, jinak PENDING.
+| Vztah | Typ | Násobnost | Význam |
+|---|---|---|---|
+| SlužbaRezervací → Rezervace | asociace | `1` : `0..*` | služba vytváří rezervace a mění jejich stav |
+| SprávaVozidel → Vozidlo | asociace | `1` : `0..*` | služba spravuje vozový park |
+| SprávaUživatelů → Uživatel | asociace | `1` : `0..*` | služba spravuje účty |
+| Přihlášení ⇢ Uživatel | závislost | – | při přihlášení vyhledá uživatele a ověří heslo |
+| SlužbaRezervací → SprávaVozidel | asociace | – | `getVehicle()` – zjistí vozidlo a jeho STK |
+| služby ⇢ NotifikačníSlužba | závislost «use» | – | posílají oznámení (`send`, `sendToRole`) |
+| Rezervace → Vozidlo | asociace | `0..*` : `1` | každá rezervace je na jedno vozidlo (`vehicleId`) |
+| Rezervace → Uživatel | asociace | `0..*` : `1` | každá rezervace má jednoho řidiče (`employeeEmail`) |
+| Vozidlo ◆— Vada | kompozice | `1` : `0..*` | vady jsou uložené přímo ve vozidle, bez vozidla neexistují |
+| Uživatel ◆— Odvolání | kompozice | `1` : `0..1` | uživatel má nejvýš jedno aktuální odvolání |
 
-### Kontrola: zprávy ze sekvenčních diagramů → operace tříd
+### Operace a sekvenční diagramy
 
-| Třída | Operace | Použito v |
+| Třída | Operace | Sekvenční diagram |
 |---|---|---|
-| Rezervace | `«create»`, `odeslat`, `jeTerminPlatny`, `delkaDni`, `potvrdit`, `cekatNaSchvaleni` | SD01 |
-| | `jeDostupne`, `prekryvaSe` | SD02 |
-| | `schvalit`, `zamitnout` | SD03 |
-| | `muzeMenit`, `zmenitTermin`, `zrusit` | SD04 |
-| | `prevzit`, `vratit` | SD05 |
-| Uzivatel | `muzeRidit` | SD01 |
-| | `jeSpravce` | SD04 |
-| | `podatOdvolani`, `getOdvolani`, `rozhodnoutOdvolani` | SD07 |
-| | `«create»`, `nastavRoli`, `nastavOpravneni`, `resetovatHeslo`, `vygenerujToken` | SD08 |
-| Vozidlo | `maPlatnouSTK` | SD01 |
-| | `zapisStav`, `nastavStav`, `maOtevreneVady` | SD05 |
-| | `nahlasVadu`, `pridejVadu`, `getOtevreneVady` | SD06 |
-| Vada | `«create»`, `vyresit` | SD06 |
-| Odvolani | `«create»`, `getPriloha`, `schvalit`, `zamitnout` | SD07 |
-| Databaze | `najdiVozidlo`, `ulozRezervaci`, `najdiUzivatele(role)` | SD01, SD05, SD06, SD07 |
-| | `najdiAktivniRezervace` | SD02 |
-| | `najdiRezervace(stav)`, `najdiRezervace(u)` | SD03, SD04 |
-| | `ulozVozidlo` | SD06 |
-| | `ulozUzivatele`, `existujeEmail`, `najdiUzivatele(email)` | SD07, SD08 |
-| NotifikacniSluzba | `odeslat` | SD01, SD03, SD04, SD06, SD07, SD08 |
+| SlužbaRezervací | `create`, `needsApproval` | SD01 |
+| | `hasVehicleClash` | SD02 |
+| | `approve`, `reject` | SD03 |
+| | `cancel` | SD04 |
+| Přihlášení | `login`, `requestPasswordReset` | SD05 |
+| SprávaVozidel | `reportDefect`, `resolveDefect` | SD06 |
+| | `saveVehicle`, `removeVehicle` | SD09 |
+| | `getVehicle` | SD01, SD03 |
+| SprávaUživatelů | `fileAppeal`, `decideAppeal` | SD07 |
+| | `saveUser` | SD08 |
+| NotifikačníSlužba | `send`, `sendToRole` | SD01, SD03, SD04, SD06, SD07, SD08 |
+
+Pravidlo stavu rezervace: délka **≤ 3 dny → CONFIRMED**, **> 3 dny → PENDING** (schvaluje správce).
+Povolené změny stavu: PENDING → CONFIRMED / REJECTED, CONFIRMED → CANCELLED.
 
 ---
 
-## TD02 – Role, rozhraní a rozšíření
+## TD02 – Ukládání a načítání dat
 
-Zpřesnění doménového modelu pro návrh podle části *Roles, Types and Interfaces* z přednášky
-(tam `Car` implementuje role `Selected` a `Specified`, se kterými pracuje `Order`):
+| Třída v diagramu | Třída v kódu | Soubor | K čemu slouží |
+|---|---|---|---|
+| **ÚložištěProhlížeče** | `LocalStore` | [services.js](../../src/services.js) | načtení a uložení dat do LocalStorage prohlížeče |
+| **KlientAPI** | `ApiClient` | services.js | načtení dat ze serveru (`GET /api/…`) |
+| **Data** | objekt `db` | [app.js](../../src/app.js) | všechna data aplikace v paměti |
+| **RepozitářVozidel** | `VehicleRepository` | [server.js](../../server/server.js) | čtení tabulky `vehicles` |
+| **RepozitářUživatelů** | `UserRepository` | server.js | čtení tabulky `users` |
+| **RepozitářRezervací** | `ReservationRepository` | server.js | čtení a zápis tabulky `reservations` |
 
-- **Role** – `Rezervace` nepotřebuje znát celého uživatele ani celé vozidlo:
-  - `Ridic` (`muzeRidit`, `getEmail`) – implementuje `Uzivatel`,
-  - `RezervovatelneVozidlo` (`maPlatnouSTK`, `zapisStav`, `nastavStav`, `maOtevreneVady`) – implementuje `Vozidlo`,
-  - `ServisovaneVozidlo` (`nahlasVadu`, `getOtevreneVady`, `maOtevreneVady`) – role vozidla při hlášení vad.
-- **Generalizace** – `ElektrickeVozidlo` je specializace `Vozidla` (ADR-05, *Future Pressure C*): přidává nabití baterie,
-  minimum 20 % a čas na dobití. Rezervace s ním pracuje stejně přes roli `RezervovatelneVozidlo`.
-- **Porty a adaptéry** (hexagonální architektura, ADR-01):
-  - `Databaze` je v návrhu rozhraní; implementace `InMemoryDatabaze` (CP1–CP4) a `SqlDatabaze` (CP5, PostgreSQL),
-  - `NotifikacniSluzba` je rozhraní; `EmailNotifikace` je «boundary» adaptér na externí e-mailový IS (ADR-04),
-    `MockNotifikace` se používá ve walking skeletonu a testech.
-- **Závislosti** – `«instantiate»` (Vozidlo vytváří Vadu, Uzivatel vytváří Odvolani), `«use»` (volání portů).
+Průběh (podrobně v SD10): při startu se data načtou z LocalStorage (ÚložištěProhlížeče),
+potom KlientAPI stáhne ze serveru vozidla, uživatele a rezervace a data přepíše.
+Server je čte z databáze `database.sqlite` přes repozitáře.
 
-> V TD01 je `Databaze` třída «singleton» (analytický pohled, odpovídá `:Databaze` v sekvenčních diagramech).
-> V TD02 se z ní stává rozhraní, aby šla vyměnit implementace bez zásahu do domény.
-
----
-
-## TD03 – Balíčkový diagram
-
-| Balíček | Obsah | Odpovědnost |
-|---|---|---|
-| `cz.carside.domena.rezervace` | Rezervace, StavRezervace, Kolize | centrální balíček – rezervace a jejich pravidla |
-| `cz.carside.domena.vozidla` | Vozidlo, ElektrickeVozidlo, Vada, RezervovatelneVozidlo, ServisovaneVozidlo, StavVozidla, StavVady | vozový park, technický stav, vady |
-| `cz.carside.domena.uzivatele` | Uzivatel, Odvolani, Soubor, Ridic, Role, StavOdvolani | účty, role, oprávnění k řízení |
-| `cz.carside.domena.porty` | Databaze, NotifikacniSluzba | rozhraní domény k okolí |
-| `cz.carside.perzistence` | InMemoryDatabaze, SqlDatabaze | adaptéry ukládání dat |
-| `cz.carside.notifikace` «boundary» | EmailNotifikace, MockNotifikace | adaptéry notifikací, hranice systému |
-
-Závislosti «import» vedou jen dovnitř domény a k portům – adaptéry závisí na doméně, doména na adaptérech ne.
+> Změny provedené v aplikaci se ukládají jen do LocalStorage prohlížeče.
+> `RepozitářRezervací.create()` (`POST /api/reservations`) na serveru existuje, ale klient ho zatím nevolá.
 
 ---
 
@@ -118,4 +103,4 @@ Závislosti «import» vedou jen dovnitř domény a k portům – adaptéry záv
 | [png/](png/) | rastrové obrázky |
 | [svg/](svg/) | vektorové obrázky |
 | [pdf/](pdf/) | PDF každého diagramu zvlášť (v plné velikosti) |
-| [Tridni_diagramy.pdf](Tridni_diagramy.pdf) | všechny diagramy v jednom PDF s přehledem tříd |
+| [Tridni_diagramy.pdf](Tridni_diagramy.pdf) | oba diagramy v jednom PDF |

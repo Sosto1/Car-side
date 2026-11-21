@@ -1,0 +1,119 @@
+@startuml TD01_TridniDiagramSystemu
+' ============================================================
+' TD01 – Třídní diagram systému Car-side
+' Třídy jsou pojmenované česky, ve «» je název třídy v kódu.
+' Atributy a metody jsou přesně podle kódu:
+'   služby      – src/services.js
+'   data        – src/mock-data.js (objekty v db)
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #222222
+skinparam ClassBackgroundColor #FFFFFF
+skinparam ClassBorderColor #222222
+skinparam ClassHeaderBackgroundColor #F3F3F3
+skinparam StereotypeFontSize 10
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+skinparam nodesep 60
+skinparam ranksep 70
+hide circle
+
+title TD01 – Třídní diagram systému Car-side
+
+' ---------------- Služby (logika) ----------------
+class "SlužbaRezervací" as RS <<ReservationService>> {
+  + create(user, vehicleId, start, end) : Reservation
+  + approve(resId)
+  + reject(resId)
+  + cancel(resId)
+  + hasVehicleClash(vehicleId, start, end) : boolean
+  + needsApproval(start, end) : boolean
+}
+
+class "SprávaVozidel" as FS <<FleetService>> {
+  + getVehicle(id) : Vehicle
+  + saveVehicle(id, data) : Vehicle
+  + removeVehicle(id)
+  + reportDefect(vehicleId, email, text) : Defect
+  + resolveDefect(vehicleId, defectId)
+}
+
+class "SprávaUživatelů" as US <<UserService>> {
+  + saveUser(id, data) : User
+  + fileAppeal(user, appeal, persist)
+  + decideAppeal(userId, approve)
+}
+
+class "Přihlášení" as AUTH <<AuthService>> {
+  + login(email, password) : User
+  + requestPasswordReset(email) : boolean
+}
+
+class "NotifikačníSlužba" as NS <<NotificationService>> {
+  + send(email, text)
+  + sendToRole(role, text)
+}
+
+' ---------------- Data ----------------
+class "Rezervace" as R <<Reservation>> {
+  - id : int
+  - start : datetime
+  - end : datetime
+  - status : PENDING | CONFIRMED | REJECTED | CANCELLED
+}
+
+class "Vozidlo" as V <<Vehicle>> {
+  - id : int
+  - name : string
+  - plate : string
+  - stkDate : date
+  - mileage : int
+}
+
+class "Vada" as D <<Defect>> {
+  - id : int
+  - text : string
+  - status : OPEN | RESOLVED
+}
+
+class "Uživatel" as U <<User>> {
+  - id : int
+  - name : string
+  - email : string
+  - role : employee | manager | admin
+  - canDrive : boolean
+}
+
+class "Odvolání" as A <<Appeal>> {
+  - text : string
+  - file : string
+  - status : PENDING | APPROVED | REJECTED
+}
+
+' ---------------- Vztahy ----------------
+' služby spravují data
+RS "1" --> "0..*" R : spravuje >
+FS "1" --> "0..*" V : spravuje >
+US "1" --> "0..*" U : spravuje >
+AUTH ..> U : ověřuje >
+
+' služby mezi sebou
+RS --> FS : getVehicle() >
+RS ..> NS : <<use>>
+FS ..> NS : <<use>>
+US ..> NS : <<use>>
+
+' vztahy mezi daty
+R "0..*" --> "1" V : vozidlo >
+R "0..*" --> "1" U : řidič >
+V "1" *-- "0..*" D : vady >
+U "1" *-- "0..1" A : odvolání >
+
+note bottom of R
+  ≤ 3 dny → CONFIRMED
+  > 3 dny → PENDING (schvaluje správce)
+end note
+
+@enduml

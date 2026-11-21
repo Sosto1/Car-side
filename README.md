@@ -27,11 +27,11 @@ Dokumentace projektu je rozdělena do strukturovaných souborů podle standardů
   - Detailní analýza zavedení elektromobilů s ohledem na kapacitu baterie a čas na dobíjení.
 - **UML Diagramy**:
   - [Dokumentace Use Case diagramů](diagrams/usecase-diagram/usecase_dokumentace.md)
-  - [Dokumentace Sekvenčních diagramů](diagrams/sekvencni_tridy/sekvencni_dokumentace.md) – zpřesněné sekvenční diagramy s objekty tříd (SD01–SD08, [PDF](diagrams/sekvencni_tridy/Sekvencni_diagramy.pdf))
+  - [Dokumentace Sekvenčních diagramů](diagrams/sekvencni_tridy/sekvencni_dokumentace.md) – sekvenční diagramy podle kódu – rezervace, schvalování, vady, odvolání, účty, vozidla, načtení dat (SD01–SD10, [PDF](diagrams/sekvencni_tridy/Sekvencni_diagramy.pdf))
   - [Původní sekvenční diagramy](diagrams/sekvencni/sekvencni_dokumentace.md) (bez tříd, obecný „Systém“)
   - [Aktivitní diagramy](diagrams/aktivitni/) (Schvalování, převzetí vozu, správa účtů a vozidel)
   - [Stavové diagramy](diagrams/stavove/stavove_dokumentace.md) – Rezervace, Vozidlo, oprávnění řidiče (STD01–STD03, [PDF](diagrams/stavove/Stavove_diagramy.pdf))
-  - [Třídní diagramy](diagrams/tridni_diagramy/tridni_dokumentace.md) – doménový model, role a rozhraní, balíčky (TD01–TD03, [PDF](diagrams/tridni_diagramy/Tridni_diagramy.pdf))
+  - [Třídní diagramy](diagrams/tridni_diagramy/tridni_dokumentace.md) – třídní diagram systému a ukládání dat (TD01–TD02, [PDF](diagrams/tridni_diagramy/Tridni_diagramy.pdf))
   - [Architektura, MVC a deployment](diagrams/architektura/architektura_dokumentace.md) – architektura systému, MVC třídy, deployment model (AR01–AR05, [PDF](diagrams/architektura/Architektura_systemu.pdf))
   - [Návrhové vzory](diagrams/navrhove_vzory/navrhove_vzory_dokumentace.md) – State, Chain of Responsibility, Observer, Adapter (NV01–NV06, [PDF](diagrams/navrhove_vzory/Navrhove_vzory.pdf))
 
@@ -141,11 +141,11 @@ Car-side/
 │   ├── sekvencni/                      # Původní sekvenční diagramy (bez tříd)
 │   ├── architektura/                   # Architektura, MVC a deployment AR01–AR05 (puml, png, svg, pdf)
 │   ├── navrhove_vzory/                 # Návrhové vzory NV01–NV06 (puml, png, svg, pdf)
-│   ├── sekvencni_tridy/                # Sekvenční diagramy s objekty tříd (puml, png, svg, pdf)
+│   ├── sekvencni_tridy/                # Sekvenční diagramy SD01–SD10 (puml, png, svg, pdf)
 │   ├── aktivitni/                      # Aktivitní diagramy schvalování, převzetí a správy
 │   ├── stavove/                        # Stavové diagramy STD01–STD03 (puml, png, svg, pdf)
 │   ├── tridni/                         # Původní pokus o diagram tříd
-│   └── tridni_diagramy/                # Třídní diagramy TD01–TD03 (puml, png, svg, pdf)
+│   └── tridni_diagramy/                # Třídní diagramy TD01–TD02 (puml, png, svg, pdf)
 ├── src/                                # Zdrojový kód aplikace
 │   ├── walking_skeleton.py             # Spustitelný CP1 Walking Skeleton s automatizovanými testy
 │   ├── app.py                          # Spouštěcí server webové aplikace

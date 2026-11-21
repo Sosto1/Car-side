@@ -1,0 +1,79 @@
+@startuml TD02_UkladaniDat
+' ============================================================
+' TD02 – Ukládání a načítání dat
+' Třídy jsou pojmenované česky, ve «» je název třídy v kódu.
+'   prohlížeč – src/services.js (LocalStore, ApiClient)
+'   server    – server/server.js (repozitáře)
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #222222
+skinparam ClassBackgroundColor #FFFFFF
+skinparam ClassBorderColor #222222
+skinparam ClassHeaderBackgroundColor #F3F3F3
+skinparam PackageBackgroundColor #FFFFFF
+skinparam PackageBorderColor #777777
+skinparam StereotypeFontSize 10
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+skinparam nodesep 50
+skinparam ranksep 60
+hide circle
+allowmixing
+
+title TD02 – Ukládání a načítání dat
+
+package "Prohlížeč" {
+  class "ÚložištěProhlížeče" as LS <<LocalStore>> {
+    - key : string
+    + load() : Data
+    + save(data) : boolean
+    + clear()
+  }
+
+  class "KlientAPI" as API <<ApiClient>> {
+    - baseUrl : string
+    + get(path)
+    + loadAll() : Data
+  }
+
+  class "Data" as DATA <<db>> {
+    - users : Uživatel[]
+    - vehicles : Vozidlo[]
+    - reservations : Rezervace[]
+    - notifications : Oznámení[]
+  }
+}
+
+package "Server" {
+  class "RepozitářVozidel" as VR <<VehicleRepository>> {
+    + findAll() : Vozidlo[]
+  }
+  class "RepozitářUživatelů" as UR <<UserRepository>> {
+    + findAll() : Uživatel[]
+  }
+  class "RepozitářRezervací" as RR <<ReservationRepository>> {
+    + findAll() : Rezervace[]
+    + create(data) : Rezervace
+  }
+}
+
+database "database.sqlite" as DB
+
+LS "1" --> "1" DATA : ukládá do LocalStorage >
+API ..> DATA : <<create>>
+API ..> VR : GET /api/vehicles
+API ..> UR : GET /api/users
+API ..> RR : GET /api/reservations
+VR --> DB : SELECT
+UR --> DB : SELECT
+RR --> DB : SELECT / INSERT
+
+note bottom of DATA
+  Při startu se data načtou z LocalStorage,
+  pak se přepíšou daty ze serveru (SD10).
+  Změny se ukládají jen do LocalStorage.
+end note
+
+@enduml
