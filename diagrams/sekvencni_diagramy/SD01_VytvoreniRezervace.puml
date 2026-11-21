@@ -1,0 +1,84 @@
+@startuml SD01_VytvoreniRezervace
+' ============================================================
+' SD01 – Vytvoření rezervace vozidla
+' Kód: src/app.js        submitReservation(ev)
+'      src/services.js   ReservationService.create(user, vehicleId, start, end)
+' Pravidla:
+'   - uživatel musí mít oprávnění řídit (canDrive)
+'   - platný termín, ne v minulosti, min. 30 minut, platná STK
+'   - žádný překryv (SD02)
+'   - délka <= 3 dny -> CONFIRMED, jinak PENDING (čeká na správce)
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam SequenceReferenceBackgroundColor #F3F3F3
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD01 – Vytvoření rezervace vozidla
+
+actor "Zaměstnanec" as Z
+participant "app.js\n«UI»" as UI
+participant "__rs:ReservationService__" as RS
+participant "__fs:FleetService__" as FS
+participant "__log:AuditLog__" as LOG
+participant "__ns:NotificationService__" as NS
+participant "db\n«data v paměti»" as D
+participant "__store:LocalStore__" as ST
+
+Z -> UI : odešle formulář\n(vozidlo, začátek, konec)
+activate UI
+UI -> RS : create(currentUser, vehicleId, start, end)
+activate RS
+
+break user.canDrive = false
+  RS -> LOG : record("403 Forbidden – zákaz řízení")
+  RS --> UI : Error("pozastavené oprávnění")
+  UI --> Z : chybová hláška
+end
+
+RS -> FS : getVehicle(vehicleId)
+activate FS
+FS --> RS : vehicle
+deactivate FS
+RS -> LOG : record("POST /reservations")
+
+break vozidlo/termín neplatný, prošlá STK,\nzačátek v minulosti nebo kratší než 30 min
+  RS --> UI : Error(hláška)
+  UI --> Z : chybová hláška
+end
+
+ref over RS, D : SD02 – kontrola dostupnosti\nhasEmployeeClash(email, start, end)\nhasVehicleClash(vehicleId, start, end)
+
+break kolize termínu
+  RS --> UI : Error("termín je obsazen")
+  UI --> Z : chybová hláška
+end
+
+RS -> RS : needsApproval(start, end)
+note right of RS : status = PENDING (> 3 dny)\njinak CONFIRMED
+RS -> D : reservations.push(r)
+
+alt r.status = CONFIRMED
+  RS -> NS : send(user.email, "rezervace automaticky potvrzena")
+else r.status = PENDING
+  RS -> NS : sendToRole("manager", "nová rezervace ke schválení")
+  RS -> NS : send(user.email, "rezervace čeká na schválení")
+end
+
+RS --> UI : r
+deactivate RS
+UI -> ST : save(db)
+UI -> UI : renderAll()
+UI --> Z : „Hotovo“ / „čeká na schválení správce“
+deactivate UI
+
+@enduml

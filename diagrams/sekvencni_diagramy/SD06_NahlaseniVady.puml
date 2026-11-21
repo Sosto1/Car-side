@@ -1,0 +1,89 @@
+@startuml SD06_NahlaseniVady
+' ============================================================
+' SD06 – Nahlášení a správa vady vozidla
+' Kód: src/app.js        submitDefectForm(), resolveDefect(), saveDefectEdit(), deleteDefect()
+'      src/services.js   FleetService.reportDefect(), resolveDefect(), updateDefect(),
+'                        deleteDefect(), findDefect(), getVehicle()
+' Pravidla:
+'   - nová vada je OPEN a upozorní všechny správce
+'   - otevřené vady se správci zobrazují v „Kritických upozorněních“
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD06 – Nahlášení a správa vady vozidla
+
+actor "Zaměstnanec" as Z
+actor "Správce\nvozového parku" as S
+participant "app.js\n«UI»" as UI
+participant "__fs:FleetService__" as FS
+participant "__v:Vehicle__\n«data»" as V
+participant "__ns:NotificationService__" as NS
+participant "__log:AuditLog__" as LOG
+participant "__store:LocalStore__" as ST
+
+== Nahlášení vady ==
+Z -> UI : vybere vozidlo, popíše vadu\nsubmitDefectForm(ev)
+activate UI
+UI -> FS : reportDefect(vehicleId, reporterEmail, text)
+activate FS
+FS -> FS : getVehicle(vehicleId)
+break vozidlo neexistuje
+  FS --> UI : null
+end
+FS -> V : defects.push({ id, reporterEmail, text, date, status: OPEN })
+FS -> NS : sendToRole("manager", "nahlášena nová vada u vozidla …")
+FS -> LOG : record("Nahlášena vada u vozidla …")
+FS --> UI : defect
+deactivate FS
+UI -> ST : save(db)
+UI --> Z : „Hlášení bylo odesláno správci flotily.“
+deactivate UI
+
+== Vyřešení vady ==
+S -> UI : klikne „Označit vyřešeno“\nresolveDefect(vehicleId, defectId)
+activate UI
+UI -> FS : resolveDefect(vehicleId, defectId)
+activate FS
+FS -> FS : findDefect(vehicleId, defectId)
+FS -> V : defect.status = RESOLVED
+FS -> LOG : record("Vada … označena jako vyřešená")
+FS --> UI : defect
+deactivate FS
+UI -> ST : save(db)
+UI -> UI : renderAll()
+deactivate UI
+
+== Úprava / smazání vady ==
+alt úprava (formulář „Upravit hlášenou vadu“)
+  S -> UI : saveDefectEdit(ev)
+  activate UI
+  UI -> FS : updateDefect(vehicleId, defectId, text, status)
+  activate FS
+  FS -> FS : findDefect(vehicleId, defectId)
+  FS -> V : defect.text = text, defect.status = status
+  FS -> LOG : record("Upravena vada …")
+  deactivate FS
+else smazání (po potvrzení dialogu)
+  S -> UI : deleteDefect(vehicleId, defectId)
+  UI -> FS : deleteDefect(vehicleId, defectId)
+  activate FS
+  FS -> V : defects = defects bez vady
+  FS -> LOG : record("Smazána vada …")
+  deactivate FS
+end
+UI -> ST : save(db)
+UI -> UI : renderAll()
+deactivate UI
+
+@enduml

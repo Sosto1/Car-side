@@ -1,0 +1,81 @@
+@startuml SD07_OdvolaniZakazRizeni
+' ============================================================
+' SD07 – Odvolání proti zákazu řízení
+' Kód: src/app.js        submitAppealForm(), openAppealDetailModal(), decideAppeal()
+'      src/services.js   UserService.fileAppeal(user, appeal, persist), decideAppeal(), getUser()
+' Pravidla:
+'   - příloha max. 1 MB (ukládá se do LocalStorage)
+'   - když se odvolání nepodaří uložit, vrátí se původní stav
+'   - schválení obnoví oprávnění k řízení (canDrive = true)
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD07 – Odvolání proti zákazu řízení
+
+actor "Zaměstnanec\n(canDrive = false)" as Z
+actor "Administrátor" as A
+participant "app.js\n«UI»" as UI
+participant "__us:UserService__" as US
+participant "__u:User__\n«data»" as U
+participant "__ns:NotificationService__" as NS
+participant "__log:AuditLog__" as LOG
+participant "__store:LocalStore__" as ST
+
+== Podání odvolání ==
+Z -> UI : vyplní zdůvodnění, přiloží soubor\nsubmitAppealForm(ev)
+activate UI
+break příloha > 1 MB nebo ji nelze načíst
+  UI --> Z : chybová hláška
+end
+UI -> UI : readFileAsDataUrl(file)
+UI -> US : fileAppeal(currentUser, {text, file, ...}, saveDb)
+activate US
+US -> U : appeal = {…, date, status: PENDING}
+US -> ST : persist() → save(db)
+ST --> US : true / false
+break uložení selhalo (plné úložiště)
+  US -> U : appeal = předchozí hodnota
+  US --> UI : Error("odvolání se nepodařilo uložit")
+  UI --> Z : chybová hláška
+end
+US -> NS : sendToRole("admin", "zaměstnanec podal odvolání")
+US -> LOG : record("Podáno odvolání k zákazu řízení")
+US --> UI : appeal
+deactivate US
+UI -> ST : save(db)
+UI --> Z : „Odvolání bylo odesláno administrátorovi.“
+deactivate UI
+
+== Rozhodnutí administrátora ==
+A -> UI : otevře žádost v tabulce uživatelů\nopenAppealDetailModal(userId)
+activate UI
+UI --> A : zdůvodnění + náhled přílohy
+A -> UI : klikne „Schválit“ / „Zamítnout“\ndecideAppeal(userId, approve)
+UI -> US : decideAppeal(userId, approve)
+activate US
+US -> US : getUser(userId)
+alt schváleno
+  US -> U : canDrive = true\nappeal.status = APPROVED
+else zamítnuto
+  US -> U : canDrive = false\nappeal.status = REJECTED
+end
+US -> NS : send(u.email, "odvolání bylo SCHVÁLENO / ZAMÍTNUTO")
+US -> LOG : record("Odvolání uživatele … bylo …")
+US --> UI : u
+deactivate US
+UI -> ST : save(db)
+UI -> UI : renderAll()
+deactivate UI
+
+@enduml

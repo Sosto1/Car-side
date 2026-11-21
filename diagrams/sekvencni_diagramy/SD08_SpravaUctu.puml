@@ -1,0 +1,74 @@
+@startuml SD08_SpravaUctu
+' ============================================================
+' SD08 – Správa uživatelských účtů (administrátor)
+' Kód: src/app.js        saveUserForm(ev), triggerPasswordReset(email)
+'      src/services.js   UserService.saveUser(id, data), getUser(), sendPasswordReset()
+' Pravidla:
+'   - e-mail nového uživatele musí být unikátní
+'   - nový účet dostane výchozí heslo "heslo" a stav ACTIVE
+'   - administrátor nastavuje roli a oprávnění k řízení (canDrive)
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD08 – Správa uživatelských účtů
+
+actor "Administrátor" as A
+participant "app.js\n«UI»" as UI
+participant "__us:UserService__" as US
+participant "db\n«data v paměti»" as D
+participant "__ns:NotificationService__" as NS
+participant "__log:AuditLog__" as LOG
+participant "__store:LocalStore__" as ST
+
+== Vytvoření / úprava účtu ==
+A -> UI : vyplní formulář uživatele\n(kód, jméno, e-mail, role, oprávnění řídit)
+activate UI
+UI -> UI : saveUserForm(ev)
+UI -> US : saveUser(id, data)
+activate US
+
+alt id je vyplněné (úprava)
+  US -> US : getUser(id)
+  US -> D : Object.assign(u, data)
+  US -> LOG : record("Upraven profil uživatele …")
+else id je prázdné (nový účet)
+  US -> D : users
+  D --> US : seznam uživatelů
+  break e-mail už existuje
+    US --> UI : Error("Uživatel s tímto e-mailem již existuje.")
+    UI --> A : alert(hláška)
+  end
+  US -> D : users.push({…data, password: "heslo", status: ACTIVE})
+  US -> LOG : record("Vytvořen nový profil uživatele …")
+end
+
+US --> UI : u
+deactivate US
+UI -> ST : save(db)
+UI -> UI : renderAll()
+deactivate UI
+
+== Reset hesla ==
+A -> UI : klikne „Reset hesla“\ntriggerPasswordReset(email)
+activate UI
+UI -> US : sendPasswordReset(email)
+activate US
+US -> LOG : record("Reset hesla vyvolán pro …")
+US -> NS : send(email, "správce vám zaslal odkaz pro resetování hesla")
+deactivate US
+UI --> A : alert("Instrukce byly zaslány na …")
+UI -> ST : save(db)
+deactivate UI
+
+@enduml

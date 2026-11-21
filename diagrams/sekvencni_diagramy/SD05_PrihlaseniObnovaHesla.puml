@@ -1,0 +1,86 @@
+@startuml SD05_PrihlaseniObnovaHesla
+' ============================================================
+' SD05 – Přihlášení, odhlášení a obnova hesla
+' Kód: src/app.js        handleLogin(), logout(), handleResetPassword(), setSession()
+'      src/services.js   AuthService.login(), findByEmail(), requestPasswordReset()
+' Pravidla:
+'   - e-mail se porovnává bez ohledu na velikost písmen
+'   - přihlášený uživatel se pamatuje v LocalStorage (SESSION_KEY)
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD05 – Přihlášení a obnova hesla
+
+actor "Uživatel" as U
+participant "app.js\n«UI»" as UI
+participant "__auth:AuthService__" as AUTH
+participant "db\n«data v paměti»" as D
+participant "__log:AuditLog__" as LOG
+database "LocalStorage" as LS
+
+== Přihlášení ==
+U -> UI : zadá e-mail a heslo
+activate UI
+UI -> UI : handleLogin(ev)
+UI -> AUTH : login(email, password)
+activate AUTH
+AUTH -> LOG : record("POST /auth/login")
+AUTH -> AUTH : findByEmail(email)
+AUTH -> D : users
+D --> AUTH : seznam uživatelů
+
+alt uživatel nenalezen nebo špatné heslo
+  AUTH -> LOG : record("401 Unauthorized")
+  AUTH --> UI : null
+  UI --> U : „Nesprávný e-mail nebo heslo.“
+else údaje jsou správné
+  AUTH -> LOG : record("200 OK – uživatel přihlášen")
+  AUTH --> UI : user
+  UI -> UI : setSession(user)
+  UI -> LS : setItem(SESSION_KEY, user.email)
+  UI -> UI : renderAll()
+  UI --> U : pohled podle role\n(zaměstnanec / správce / admin)
+end
+deactivate AUTH
+deactivate UI
+
+== Odhlášení ==
+U -> UI : logout()
+activate UI
+UI -> LOG : record("Uživatel se odhlásil")
+UI -> UI : setSession(null)
+UI -> LS : removeItem(SESSION_KEY)
+deactivate UI
+
+== Obnova hesla ==
+U -> UI : zadá e-mail ve formuláři\n„Zapomenuté heslo“
+activate UI
+UI -> UI : handleResetPassword(ev)
+UI -> AUTH : requestPasswordReset(email)
+activate AUTH
+AUTH -> LOG : record("POST /auth/reset-password")
+AUTH -> AUTH : findByEmail(email)
+alt e-mail neexistuje
+  AUTH -> LOG : record("404 Not Found")
+  AUTH --> UI : false
+  UI --> U : „E-mail nebyl v systému nalezen.“
+else e-mail existuje
+  AUTH -> LOG : record("200 OK – odeslán e-mail s tokenem")
+  AUTH --> UI : true
+  UI --> U : „Instrukce byly odeslány na váš e-mail.“
+end
+deactivate AUTH
+deactivate UI
+
+@enduml

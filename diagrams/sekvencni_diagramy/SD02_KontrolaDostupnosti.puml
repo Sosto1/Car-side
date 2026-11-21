@@ -1,0 +1,61 @@
+@startuml SD02_KontrolaDostupnosti
+' ============================================================
+' SD02 – Kontrola dostupnosti vozidla (samostatná interakce, volaná přes ref)
+' Kód: src/services.js   ReservationService.hasVehicleClash(), hasEmployeeClash(), isBlocking()
+' Volá se z: ReservationService.create() (SD01),
+'            app.js renderVehicleSelect() – zašednutí obsazených vozidel ve formuláři,
+'            app.js applyCalendarSelection() – výběr termínu v kalendáři
+' Pravidla:
+'   - rezervace stejného vozidla se nesmí překrývat
+'   - zaměstnanec smí mít v jednom čase max. 1 vozidlo
+'   - blokují jen rezervace ve stavu PENDING a CONFIRMED
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD02 – Kontrola dostupnosti vozidla (ref)
+
+participant "volající\n(rs.create / app.js)" as C
+participant "__rs:ReservationService__" as RS
+participant "db\n«data v paměti»" as D
+
+== Kolize vozidla ==
+C -> RS : hasVehicleClash(vehicleId, start, end)
+activate RS
+RS -> D : reservations
+D --> RS : seznam rezervací
+loop pro každou rezervaci r
+  opt r.vehicleId = vehicleId
+    RS -> RS : isBlocking(r)
+    note right of RS : PENDING nebo CONFIRMED
+    opt r blokuje
+      RS -> RS : overlaps(start, end, r.start, r.end)
+      note right of RS : start1 < end2 && start2 < end1
+    end
+  end
+end
+RS --> C : true = vozidlo je obsazené
+deactivate RS
+
+== Kolize zaměstnance ==
+C -> RS : hasEmployeeClash(email, start, end)
+activate RS
+RS -> D : reservations
+D --> RS : seznam rezervací
+loop pro každou rezervaci r
+  opt r.employeeEmail = email a isBlocking(r)
+    RS -> RS : overlaps(start, end, r.start, r.end)
+  end
+end
+RS --> C : true = zaměstnanec už má jiné auto
+deactivate RS
+
+@enduml

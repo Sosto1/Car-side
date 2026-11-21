@@ -1,0 +1,78 @@
+@startuml SD10_NacteniDatZeServeru
+' ============================================================
+' SD10 – Spuštění aplikace a načtení dat ze serveru
+' Kód: src/app.js        loadDb(), loadDataFromApi(), renderAll()
+'      src/services.js   LocalStore.load(), ApiClient.loadAll(), ApiClient.get()
+'      server/server.js  GET /api/vehicles|users|reservations,
+'                        VehicleRepository / UserRepository / ReservationRepository.findAll()
+' Pravidla:
+'   - nejdřív se načtou data z LocalStorage (nebo výchozí mock-data.js)
+'   - pak se přepíšou daty ze serveru; když server neběží, zůstanou lokální data
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD10 – Spuštění aplikace a načtení dat ze serveru
+
+actor "Uživatel" as U
+participant "app.js\n«UI»" as UI
+participant "__store:LocalStore__" as ST
+participant "__api:ApiClient__" as API
+participant "server.js\n«REST API»" as SRV
+participant "__repo:VehicleRepository__\n(stejně User-, ReservationRepository)" as REPO
+database "database.sqlite" as DB
+
+U -> UI : otevře stránku v prohlížeči
+activate UI
+UI -> ST : load()
+activate ST
+alt v LocalStorage jsou uložená data
+  ST --> UI : db z LocalStorage
+else první spuštění
+  ST -> ST : createInitial()
+  ST --> UI : kopie INITIAL_DATABASE (mock-data.js)
+end
+deactivate ST
+
+UI -> UI : loadDataFromApi()
+UI -> API : loadAll()
+activate API
+
+loop pro "/vehicles", "/users", "/reservations"
+  API -> SRV : GET /api/…
+  activate SRV
+  SRV -> REPO : findAll()
+  activate REPO
+  REPO -> DB : SELECT * FROM …
+  DB --> REPO : řádky tabulky
+  REPO -> REPO : převod JSON sloupců\n(defects, appeal, canDrive)
+  REPO --> SRV : seznam objektů
+  deactivate REPO
+  SRV --> API : 200 OK + JSON
+  deactivate SRV
+end
+
+API --> UI : { vehicles, users, reservations }
+deactivate API
+
+alt server odpověděl a data nejsou prázdná
+  UI -> UI : db.vehicles / db.users / db.reservations = data ze serveru
+else server je nedostupný
+  UI -> UI : console.warn – pokračuje s lokálními daty
+end
+
+UI -> UI : renderAll()
+UI --> U : stránka s vozidly a kalendářem
+deactivate UI
+
+@enduml

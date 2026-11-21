@@ -1,0 +1,69 @@
+@startuml SD09_SpravaVozidel
+' ============================================================
+' SD09 – Správa vozového parku (správce)
+' Kód: src/app.js        saveVehicleForm(ev), removeVehicle(id)
+'      src/services.js   FleetService.saveVehicle(id, data), getVehicle(), removeVehicle()
+' Pravidla:
+'   - s id se vozidlo upraví (např. nová STK), bez id se vytvoří nové
+'   - odebráním vozidla se smažou i jeho rezervace
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD09 – Správa vozového parku
+
+actor "Správce\nvozového parku" as S
+participant "app.js\n«UI»" as UI
+participant "__fs:FleetService__" as FS
+participant "db\n«data v paměti»" as D
+participant "__log:AuditLog__" as LOG
+participant "__store:LocalStore__" as ST
+
+== Přidání / úprava vozidla ==
+S -> UI : vyplní formulář vozidla\n(název, SPZ, typ, lokalita, STK, ručení, km)
+activate UI
+UI -> UI : saveVehicleForm(ev)
+UI -> FS : saveVehicle(id, data)
+activate FS
+alt id je vyplněné (úprava)
+  FS -> FS : getVehicle(id)
+  FS -> D : Object.assign(v, data)
+  FS -> LOG : record("Aktualizováno vozidlo …")
+else id je prázdné (nové vozidlo)
+  FS -> D : vehicles.push({ id: nextVehicleId++, …data, defects: [] })
+  FS -> LOG : record("Vytvořeno nové vozidlo …")
+end
+FS --> UI : v
+deactivate FS
+UI -> ST : save(db)
+UI -> UI : renderAll()
+deactivate UI
+
+== Odebrání vozidla ==
+S -> UI : klikne „Smazat“\nremoveVehicle(id)
+activate UI
+UI -> S : confirm("Opravdu chcete odebrat vozidlo?")
+break správce dialog zruší
+  UI --> S : nic se nezmění
+end
+UI -> FS : removeVehicle(id)
+activate FS
+FS -> D : vehicles = vehicles bez vozidla
+FS -> D : reservations = rezervace bez tohoto vozidla
+FS -> LOG : record("Odebráno vozidlo …")
+deactivate FS
+UI -> ST : save(db)
+UI -> UI : renderAll()
+deactivate UI
+
+@enduml

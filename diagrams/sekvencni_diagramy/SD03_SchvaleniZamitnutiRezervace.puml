@@ -1,0 +1,70 @@
+@startuml SD03_SchvaleniZamitnutiRezervace
+' ============================================================
+' SD03 – Schválení / zamítnutí rezervace správcem
+' Kód: src/app.js        managerDecision(resId, approve)
+'      src/services.js   ReservationService.approve(), reject(), changeStatus()
+' Pravidla:
+'   - povolené přechody: PENDING -> CONFIRMED, PENDING -> REJECTED (ALLOWED_TRANSITIONS)
+'   - zamítnutím se termín vozidla uvolní
+' ============================================================
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ArrowColor #222222
+skinparam SequenceLifeLineBorderColor #777777
+skinparam ParticipantBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #222222
+skinparam ActorBackgroundColor #FFFFFF
+skinparam ActorBorderColor #222222
+skinparam SequenceGroupBorderColor #555555
+skinparam SequenceGroupHeaderFontStyle bold
+skinparam NoteBackgroundColor #FFFBE6
+skinparam NoteBorderColor #B5A642
+
+title SD03 – Schválení / zamítnutí rezervace správcem
+
+actor "Správce\nvozového parku" as S
+participant "app.js\n«UI»" as UI
+participant "__rs:ReservationService__" as RS
+participant "db\n«data v paměti»" as D
+participant "__log:AuditLog__" as LOG
+participant "__fs:FleetService__" as FS
+participant "__ns:NotificationService__" as NS
+participant "__store:LocalStore__" as ST
+
+S -> UI : klikne „Schválit“ nebo „Zamítnout“\nv panelu „Ke schválení“
+activate UI
+UI -> UI : managerDecision(resId, approve)
+
+alt schválit
+  UI -> RS : approve(resId)
+  RS -> RS : changeStatus(resId, CONFIRMED, "CONFIRM", "schválena")
+else zamítnout
+  UI -> RS : reject(resId)
+  RS -> RS : changeStatus(resId, REJECTED, "REJECT", "zamítnuta")
+end
+activate RS
+
+RS -> D : najdi rezervaci podle resId
+D --> RS : rec
+
+break přechod rec.status -> newStatus\nnení v ALLOWED_TRANSITIONS
+  RS --> UI : Error("nelze změnit stav")
+  UI --> S : alert(hláška)
+end
+
+RS -> LOG : record("PUT /reservations/{id}/status")
+RS -> RS : rec.status = newStatus
+RS -> FS : getVehicle(rec.vehicleId)
+activate FS
+FS --> RS : vehicle
+deactivate FS
+RS -> NS : send(rec.employeeEmail,\n"rezervace byla schválena / zamítnuta")
+RS --> UI : rec
+deactivate RS
+
+UI -> ST : save(db)
+UI -> UI : renderAll()
+UI --> S : rezervace zmizí z panelu „Ke schválení“
+deactivate UI
+
+@enduml
