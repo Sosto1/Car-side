@@ -48,6 +48,11 @@ class LocalStore {
     localStorage.removeItem(this.key);
   }
 
+  /** Jsou už v prohlížeči uložená data (tj. nejde o první spuštění)? */
+  hasSavedData() {
+    try { return localStorage.getItem(this.key) !== null; } catch (e) { return false; }
+  }
+
   createInitial() {
     return JSON.parse(JSON.stringify(this.initialData));
   }
