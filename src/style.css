@@ -39,7 +39,8 @@ code, .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo,
 button { font: inherit; }
 input, select, textarea { font: inherit; color: inherit; }
 
-.app { max-width: 1180px; margin: 0 auto; padding: 0 20px 60px; }
+/* šířka se přizpůsobí obrazovce: 92 % okna, nejméně 1180 px (pokud se vejde), nejvýš 1680 px */
+.app { max-width: clamp(1180px, 92vw, 1680px); margin: 0 auto; padding: 0 20px 60px; }
 
 /* ---------- Topbar ---------- */
 .topbar {
@@ -60,7 +61,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .user-info { font-size: 13px; color: var(--ink); }
 
 /* ---------- Layout ---------- */
-.layout { display: grid; grid-template-columns: 300px 1fr; gap: 22px; align-items: start; }
+.layout { display: grid; grid-template-columns: clamp(300px, 22%, 360px) 1fr; gap: 22px; align-items: start; }
 @media (max-width: 820px) { .layout { grid-template-columns: 1fr; } }
 
 .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 18px 20px; }
