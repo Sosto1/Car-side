@@ -22,8 +22,11 @@ let currentUser = loadSession();
 let fleetTimerInterval = null;
 let stkActiveFilter = "ALL";
 
-// Načtení všech dat z REST API serveru (vozidla, uživatelé, rezervace)
+// Načtení výchozích dat z REST API serveru (vozidla, uživatelé, rezervace).
+// Jen při prvním spuštění – jakmile jsou data uložená v prohlížeči, ze serveru se už
+// nepřepisují, jinak by se po obnovení stránky ztratily všechny provedené změny.
 async function loadDataFromApi() {
+  if (store.hasSavedData()) return;
   try {
     const data = await api.loadAll();
     if (data.vehicles && data.vehicles.length > 0) db.vehicles = data.vehicles;
@@ -33,6 +36,8 @@ async function loadDataFromApi() {
   } catch (err) {
     console.warn("API server nedostupný, používám lokální data:", err);
   }
+  saveDb();
+  currentUser = loadSession(); // přihlášený uživatel musí ukazovat na objekt v nově načtených datech
 }
 
 function loadDb() {
@@ -63,8 +68,8 @@ function resetDemo() {
   localStorage.removeItem(SESSION_KEY);
   db = store.createInitial();
   currentUser = null;
-  saveDb();
-  renderAll();
+  // uložená data jsou smazaná → znovu se načte výchozí stav ze serveru
+  loadDataFromApi().then(() => renderAll());
 }
 
 function goHome() {
