@@ -65,6 +65,7 @@ input, select, textarea { font: inherit; color: inherit; }
 
 .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 18px 20px; }
 .panel + .panel { margin-top: 18px; }
+#managerView + #adminView { margin-top: 18px; } /* admin vidí pod sebou správcovský i administrátorský pohled */
 .panel h2 { font-size: 15px; }
 .panel .sub { color: var(--muted); font-size: 13px; margin-top: 3px; }
 
