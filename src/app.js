@@ -1324,7 +1324,7 @@ function renderAlertsList() {
         ${item.text}
       </div>
       <div class="actions">
-        ${item.defectId ? `<button class="btn confirm small" onclick="resolveDefect(${item.vId},${item.defectId})">Označit vyřešeno</button>` : `<button class="btn line small" onclick="openVehicleModal(${item.vId})">Upravit dáta</button>`}
+        ${item.defectId ? `<button class="btn confirm small" onclick="resolveDefect(${item.vId},${item.defectId})">Označit vyřešeno</button>` : `<button class="btn line small" onclick="openVehicleModal(${item.vId})">Upravit data</button>`}
       </div>
     </div>
   `).join("");
