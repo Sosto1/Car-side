@@ -6,7 +6,7 @@ Request -> Domain Validation -> Persistence -> State Change -> Notification Serv
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict
 import sys
 
@@ -266,15 +266,21 @@ def run_walking_skeleton() -> bool:
     petr = User(id=2, name="Petr Dvořák", email="petr.dvorak@carside.cz", role="employee", can_drive=False)
     martin = User(id=4, name="Martin Kučera", email="martin.kucera@carside.cz", role="manager", can_drive=True)
 
-    octavia = Vehicle(id=1, name="Škoda Octavia Combi", plate="4AB 1234", stk_valid_until=datetime(2027, 12, 31))
+    # Termíny scénáře jsou relativní k dnešku (začínají za týden), aby skript fungoval kdykoliv.
+    base = (datetime.now() + timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    def at(day: int, hour: int) -> datetime:
+        return base + timedelta(days=day, hours=hour)
+
+    octavia = Vehicle(id=1, name="Škoda Octavia Combi", plate="4AB 1234", stk_valid_until=datetime.now() + timedelta(days=730))
     superb_bad_stk = Vehicle(id=3, name="Škoda Superb", plate="1HI 9988", stk_valid_until=datetime(2025, 1, 1))
 
     print("  Data připravena: Uživatelé (Jana, Petr, manažer Martin), Vozidla (Octavia - platná STK, Superb - prošlá STK).")
 
     # 2. Úspěšné vytvoření krátké rezervace (<= 3 dny) -> automaticky CONFIRMED
     print("\n[KROK 2] End-to-end průchod: Vytvoření standardní rezervace (Jana -> Octavia, 2 dny)...")
-    start1 = datetime(2026, 11, 2, 8, 0)
-    end1 = datetime(2026, 11, 4, 17, 0)
+    start1 = at(0, 8)
+    end1 = at(2, 17)
     res1 = service.create_reservation(jana, octavia, start1, end1)
 
     print(f"  -> Výsledek: Vytvořena rezervace ID={res1.id}, Stav={res1.status}, Uživatel={res1.user_email}")
@@ -285,8 +291,8 @@ def run_walking_skeleton() -> bool:
 
     # 3. Kontrola kolize: Pokus o překrývající se rezervaci na stejné vozidlo (Common business rule)
     print("\n[KROK 3] Business rule check: Pokus o překrývající se rezervaci stejného vozu...")
-    overlap_start = datetime(2026, 11, 3, 10, 0)
-    overlap_end = datetime(2026, 11, 5, 12, 0)
+    overlap_start = at(1, 10)
+    overlap_end = at(3, 12)
     try:
         service.create_reservation(martin, octavia, overlap_start, overlap_end)
         print("  [CHYBA] Překryv nebyl zachycen!")
@@ -297,7 +303,7 @@ def run_walking_skeleton() -> bool:
     # 4. Domain-specific rule: Pokus uživatele se zákazem řízení
     print("\n[KROK 4] Domain rule check: Pokus uživatele s pozastaveným oprávněním (Petr Dvořák)...")
     try:
-        service.create_reservation(petr, octavia, datetime(2026, 11, 10, 8, 0), datetime(2026, 11, 11, 17, 0))
+        service.create_reservation(petr, octavia, at(8, 8), at(9, 17))
         print("  [CHYBA] Zákaz řízení nebyl respektován!")
         return False
     except PermissionError as e:
@@ -306,7 +312,7 @@ def run_walking_skeleton() -> bool:
     # 5. Domain-specific rule: Pokus o rezervaci vozu s neplatnou STK
     print("\n[KROK 5] Domain rule check: Pokus o rezervaci vozu s prošlou STK...")
     try:
-        service.create_reservation(jana, superb_bad_stk, datetime(2026, 11, 10, 8, 0), datetime(2026, 11, 11, 17, 0))
+        service.create_reservation(jana, superb_bad_stk, at(8, 8), at(9, 17))
         print("  [CHYBA] Prošlá STK nebyla zachycena!")
         return False
     except ValueError as e:
@@ -314,8 +320,8 @@ def run_walking_skeleton() -> bool:
 
     # 6. Dlouhá rezervace (> 3 dny) -> PENDING -> Schválení manažerem -> CONFIRMED
     print("\n[KROK 6] Workflow schvalování: Dlouhá rezervace (> 3 dny) vyžaduje schválení správcem...")
-    start_long = datetime(2026, 11, 15, 8, 0)
-    end_long = datetime(2026, 11, 20, 17, 0)
+    start_long = at(13, 8)
+    end_long = at(18, 17)
     res_long = service.create_reservation(jana, octavia, start_long, end_long)
     print(f"  -> Vytvořena rezervace ID={res_long.id}, Stav={res_long.status} (čeká na manažera)")
     assert res_long.status == ReservationStatus.PENDING
