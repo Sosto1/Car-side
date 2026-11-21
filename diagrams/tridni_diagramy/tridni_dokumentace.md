@@ -1,6 +1,6 @@
 # Třídní diagramy – Car-side
 
-Třídní diagramy navazují na [sekvenční diagramy SD01–SD10](../sekvencni_tridy/sekvencni_dokumentace.md)
+Třídní diagramy navazují na [sekvenční diagramy SD01–SD10](../sekvencni_diagramy/sekvencni_dokumentace.md)
 a jsou vytvořené postupem z přednášky *Software Engineering*:
 
 - **třídy** se hledají v sekvenčních diagramech – každý objekt (`rs:ReservationService`, `fs:FleetService` …) je instancí jedné třídy,

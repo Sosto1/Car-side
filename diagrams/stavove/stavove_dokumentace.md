@@ -1,7 +1,7 @@
 # Stavové diagramy – Car-side
 
 Diagramy jsou kreslené jako **stavový tok** – vedle stavů objektu ukazují i to, **který aktér a jakou akcí
-(use case + REST endpoint)** objekt mezi stavy převádí. Odvozené jsou ze [sekvenčních diagramů SD01–SD08](../sekvencni_tridy/sekvencni_dokumentace.md),
+(use case + REST endpoint)** objekt mezi stavy převádí. Odvozené jsou ze [sekvenčních diagramů SD01–SD08](../sekvencni_diagramy/sekvencni_dokumentace.md),
 stavy odpovídají výčtovým typům z [třídního diagramu TD01](../tridni_diagramy/tridni_dokumentace.md).
 
 | Diagram | Objekt | Odvozeno z | Soubor |

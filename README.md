@@ -1,128 +1,123 @@
 # Car-side 🚗
 > Webový systém pro firemní car-sharing a správu vozového parku.
 
-Projekt vzniká v rámci předmětu Softwarové inženýrství (SWI) na VŠB-TUO. Poskytuje komplexní řešení pro rezervaci firemních vozidel zaměstnanci, schvalovací procesy správců vozového parku, kontrolu technického stavu (STK, servis, hlášení závad) a administraci uživatelských účtů a řidičských oprávnění.
+**Verze 1.0.0** · Projekt vzniká v rámci předmětu Softwarové inženýrství (SWI) na VŠB-TUO.
+
+Car-side řeší rezervaci firemních vozidel zaměstnanci, schvalování delších rezervací správcem vozového parku, kontrolu technického stavu vozidel (STK, povinné ručení, hlášení vad) a správu uživatelských účtů včetně oprávnění k řízení.
 
 ---
 
-## 📚 Přehled dokumentace projektu
+## ✨ Funkce
 
-Dokumentace projektu je rozdělena do strukturovaných souborů podle standardů softwarového inženýrství:
+**Zaměstnanec**
+- rezervace vozidla přes formulář nebo výběrem v týdenním kalendáři obsazenosti,
+- rezervace do 3 dnů se potvrdí automaticky, delší čekají na schválení správce,
+- kontrola kolizí (vozidlo ani zaměstnanec nemůže mít dvě rezervace ve stejném čase) a platnosti STK,
+- nahlášení vady na vozidle,
+- odvolání proti zákazu řízení s přílohou.
 
-- **[Project Frame & Intent and Change](docs/intent-and-change.md)**
-  - Doménový rámec projektu, vymezení rezervovaného zdroje, účel systému a stakeholderi.
-  - Základní koncepty, klíčové operace, perzistentní stav a stavový automat rezervace.
-  - Všeobecné pravidlo (*Confirmed reservations must not overlap*) a doménová pravidla.
-  - Systémové hranice (Notification Service), předpoklady (Assumptions) a neznámé (Unknowns).
-  - Vybraný budoucí tlak (*Future Pressure C* – rozšíření o elektromobily).
-- **[Architecture & Decisions](docs/architecture-and-decisions.md)**
-  - Architektonický styl (Clean / Hexagonal Architecture), rozpad do vrstev a komponent.
-  - Systémové rozhraní a externí hranice.
-  - Architektonická rozhodnutí (ADR-01 až ADR-05): nekoliznost rezervací, pravidla schvalování, asynchronní notifikace.
-- **[Evidence & Evolution](docs/evidence-and-evolution.md)**
-  - Záznam inženýrského experimentu (C01 Engineering Spike) s hypotézou, pozorováním a rozhodnutím.
-  - **Definice CP1 Walking Skeleton** – specifikace nejtenčího vertikálního řezu systémem.
-  - Evoluční roadmapa projektu (CP1 $\rightarrow$ CP2 $\rightarrow$ CP3/CP4 $\rightarrow$ CP5).
-- **[Future Pressure](docs/future-pressure.txt)**
-  - Detailní analýza zavedení elektromobilů s ohledem na kapacitu baterie a čas na dobíjení.
-- **UML Diagramy**:
-  - [Dokumentace Use Case diagramů](diagrams/usecase-diagram/usecase_dokumentace.md)
-  - [Dokumentace Sekvenčních diagramů](diagrams/sekvencni_tridy/sekvencni_dokumentace.md) – sekvenční diagramy podle kódu – rezervace, schvalování, vady, odvolání, účty, vozidla, načtení dat (SD01–SD10, [PDF](diagrams/sekvencni_tridy/Sekvencni_diagramy.pdf))
-  - [Původní sekvenční diagramy](diagrams/sekvencni/sekvencni_dokumentace.md) (bez tříd, obecný „Systém“)
-  - [Aktivitní diagramy](diagrams/aktivitni/) (Schvalování, převzetí vozu, správa účtů a vozidel)
-  - [Stavové diagramy](diagrams/stavove/stavove_dokumentace.md) – Rezervace, Vozidlo, oprávnění řidiče (STD01–STD03, [PDF](diagrams/stavove/Stavove_diagramy.pdf))
-  - [Třídní diagramy](diagrams/tridni_diagramy/tridni_dokumentace.md) – třídní diagram systému a ukládání dat (TD01–TD02, [PDF](diagrams/tridni_diagramy/Tridni_diagramy.pdf))
-  - [Architektura, MVC a deployment](diagrams/architektura/architektura_dokumentace.md) – architektura systému, MVC třídy, deployment model (AR01–AR05, [PDF](diagrams/architektura/Architektura_systemu.pdf))
-  - [Návrhové vzory](diagrams/navrhove_vzory/navrhove_vzory_dokumentace.md) – State, Chain of Responsibility, Observer, Adapter (NV01–NV06, [PDF](diagrams/navrhove_vzory/Navrhove_vzory.pdf))
+**Správce vozového parku**
+- schválení, zamítnutí a zrušení rezervací,
+- správa vozidel (STK, povinné ručení, najeté km),
+- kritická upozornění a přehled prošlých / končících STK a ručení,
+- správa nahlášených vad.
+
+**Administrátor**
+- vše, co správce,
+- správa uživatelů, rolí a oprávnění k řízení,
+- rozhodování o odvoláních včetně náhledu přílohy.
 
 ---
 
-## 🦴 CP1 Walking Skeleton — Skutečně runnable cesta
+## 🖥️ Spuštění aplikace
 
-Jako **CP1 Walking Skeleton** jsme vytvořili tenký, plně spustitelný vertikální řez systémem propojující všechny klíčové architektonické komponenty:  
-**Požadavek klienta $\rightarrow$ Doménová validace a invarianty $\rightarrow$ Změna stavu $\rightarrow$ Perzistence $\rightarrow$ Externí notifikační služba $\rightarrow$ Odpověď**.
+Potřeba: **Node.js** a **Python 3**. Spusťte ve dvou terminálech v kořenové složce projektu:
 
-### Jak walking skeleton spustit (1 příkaz)
+```bash
+node server/server.js     # REST API + databáze SQLite na http://localhost:3000
+python src/app.py         # webová aplikace na http://localhost:8000 (otevře se v prohlížeči)
+```
 
-Ke spuštění není potřeba instalovat žádné externí knihovny, stačí standardní **Python 3**:
+### Demo účty (heslo u všech: `heslo`)
+
+| Účet | Role | Co vyzkoušet |
+|---|---|---|
+| `jana.novakova@carside.cz` | Zaměstnanec | tvorba rezervací, hlášení vad |
+| `petr.dvorak@carside.cz` | Zaměstnanec se zákazem řízení | odvolání proti zákazu řízení |
+| `martin.kucera@carside.cz` | Správce vozového parku | schvalování rezervací, správa vozidel a vad |
+| `admin@carside.cz` | Administrátor | správa uživatelů, rozhodování o odvoláních |
+
+### Průchod aplikací
+1. **Přihlášení:** vpravo nahoře *Přihlásit se* – lze použít rychlé přihlášení demo profilem.
+2. **Vytvoření rezervace:** vyberte vozidlo a termín (formulář nebo tažením v kalendáři). Termín delší než 3 dny čeká na schválení správce.
+3. **Pravidla v reálném čase:** kalendář ukazuje obsazenost, boční panel odpočítává čas do uvolnění vozidla, vozidla s prošlou STK nelze vybrat.
+4. **Log komunikace:** v dolní liště lze rozbalit protokol systémových událostí.
+5. **Obnovit výchozí databázi:** tlačítko pod logem vrátí demo data do původního stavu.
+
+---
+
+## 🏗️ Architektura
+
+```plaintext
+Prohlížeč                                           Server (Node.js)
+┌───────────────────────────────────────┐          ┌──────────────────────────────┐
+│ index.html + app.js   (UI)            │          │ server.js  (Express REST API) │
+│        │                              │  HTTP    │   VehicleRepository           │
+│        ▼                              │  JSON    │   UserRepository              │
+│ services.js  (služby a pravidla)      │ ───────► │   ReservationRepository       │
+│   ReservationService, FleetService,   │          │        │                      │
+│   UserService, AuthService, …         │          │        ▼                      │
+│        │                              │          │ database.sqlite  (SQLite)     │
+│        ▼                              │          └──────────────────────────────┘
+│ LocalStorage  (ukládání změn)         │
+└───────────────────────────────────────┘
+```
+
+- **`src/app.js`** – uživatelské rozhraní: obsluha formulářů a vykreslování.
+- **`src/services.js`** – pravidla systému ve třídách: `ReservationService` (rezervace, kolize, schvalování), `FleetService` (vozidla, vady), `UserService` (účty, odvolání), `AuthService` (přihlášení), `NotificationService`, `AuditLog`, `LocalStore`, `ApiClient`.
+- **`server/server.js`** – REST API (`GET /api/vehicles`, `/api/users`, `/api/reservations`, `POST /api/reservations`) s repozitáři nad databází SQLite.
+
+Podrobně viz [třídní](diagrams/tridni_diagramy/tridni_dokumentace.md) a [sekvenční diagramy](diagrams/sekvencni_diagramy/sekvencni_dokumentace.md).
+
+---
+
+## 📚 Dokumentace projektu
+
+- **[Project Frame & Intent and Change](docs/intent-and-change.md)** – doména, účel systému, stakeholdeři, doménová pravidla, předpoklady a neznámé.
+- **[Architecture & Decisions](docs/architecture-and-decisions.md)** – architektonický styl, komponenty a rozhodnutí ADR-01 až ADR-05.
+- **[Evidence & Evolution](docs/evidence-and-evolution.md)** – C01 Engineering Spike, definice CP1 Walking Skeleton a roadmapa.
+- **[Future Pressure](docs/future-pressure.md)** – rozbor zavedení elektromobilů (kapacita baterie, dobíjení).
+
+**UML diagramy** (složka [diagrams/](diagrams/)):
+- [Případy užití](diagrams/usecase-diagram/usecase_dokumentace.md)
+- [Sekvenční diagramy](diagrams/sekvencni_diagramy/sekvencni_dokumentace.md) – rezervace, schvalování, vady, odvolání, účty, vozidla, načtení dat (SD01–SD10, [PDF](diagrams/sekvencni_diagramy/Sekvencni_diagramy.pdf))
+- [Třídní diagramy](diagrams/tridni_diagramy/tridni_dokumentace.md) – třídní diagram systému a ukládání dat (TD01–TD02, [PDF](diagrams/tridni_diagramy/Tridni_diagramy.pdf))
+- [Stavové diagramy](diagrams/stavove/stavove_dokumentace.md) – rezervace, vozidlo, oprávnění řidiče (STD01–STD03, [PDF](diagrams/stavove/Stavove_diagramy.pdf))
+- [Aktivitní diagramy](diagrams/aktivitni/) – schvalování, převzetí vozu, správa účtů a vozidel
+- [Architektura, MVC a nasazení](diagrams/architektura/architektura_dokumentace.md) (AR01–AR05, [PDF](diagrams/architektura/Architektura_systemu.pdf))
+- [Návrhové vzory](diagrams/navrhove_vzory/navrhove_vzory_dokumentace.md) – State, Chain of Responsibility, Observer, Adapter (NV01–NV06, [PDF](diagrams/navrhove_vzory/Navrhove_vzory.pdf))
+
+---
+
+## 🦴 CP1 Walking Skeleton
+
+Samostatný spustitelný prototyp doménového jádra v Pythonu (bez externích knihoven). Ověřuje celý vertikální řez:
+**požadavek → doménová validace → změna stavu → perzistence → notifikace → odpověď**.
 
 ```bash
 python src/walking_skeleton.py
 ```
-*(Alternativně lze spustit také přes: `python src/app.py --test`)*
 
-### Průběh spustitelného scénáře krok za krokem:
+Scénář krok za krokem:
+1. **Inicializace** in-memory úložiště, mock notifikační služby a dat (Jana, Petr se zákazem řízení, správce Martin, Škoda Octavia a Škoda Superb s prošlou STK).
+2. **Standardní rezervace (≤ 3 dny)** – uloží se rovnou jako `CONFIRMED` a odejde potvrzení.
+3. **Kolize** – překrývající se rezervace stejného vozu je odmítnuta (`ValueError`).
+4. **Zákaz řízení** – Petr rezervaci nevytvoří (`PermissionError`).
+5. **Prošlá STK** – vůz Škoda Superb nelze rezervovat.
+6. **Rezervace > 3 dny** – uloží se jako `PENDING`, správce ji schválí → `CONFIRMED`.
+7. **Storno** – rezervace přejde do `CANCELLED` a termín se uvolní.
 
-1. **Inicializace repozitáře a notifikační služby:** Vytvoří se in-memory úložiště, mock notifikační brány a načtou se výchozí data (zaměstnankyně Jana, zaměstnanec Petr se zákazem řízení, správce flotily Martin, vozy Škoda Octavia a Škoda Superb).
-2. **Standardní rezervace ($\le 3$ dny):** Jana vytvoří rezervaci vozu Škoda Octavia na 2 dny. Systém ověří platnost STK i její řidičské oprávnění, uloží rezervaci přímo ve stavu `CONFIRMED` a odešle potvrzovací notifikaci na její e-mail.
-3. **Detekce kolize (Common business rule):** Manažer Martin se pokusí rezervovat stejnou Octavii v čase, který se překrývá s Janinou rezervací. Systém operaci odmítne a vyhodí kolizní chybu `ValueError`.
-4. **Kontrola způsobilosti řidiče (Domain rule):** Uživatel Petr s pozastaveným oprávněním se pokusí vytvořit rezervaci. Systém požadavek odmítne s výjimkou `PermissionError`.
-5. **Kontrola technické způsobilosti (STK rule):** Pokus o rezervaci vozu Škoda Superb s propadlou STK je systémem zamítnut.
-6. **Nadlimitní rezervace a schvalovací workflow (> 3 dny):** Jana zažádá o 5denní rezervaci. Systém ji uloží ve stavu `PENDING` a zašle notifikaci správci. Následně správce Martin rezervaci schválí $\rightarrow$ přechod do stavu `CONFIRMED` a notifikace Janě.
-7. **Storno rezervace a uvolnění termínu:** Jana zruší svou původní rezervaci č. 1. Stav se změní na `CANCELLED` a uvolněný termín je okamžitě opět k dispozici pro ostatní.
-
-### Ukázka výstupu z konzole:
-
-```text
-======================================================================
- CAR-SIDE — CP1 WALKING SKELETON (END-TO-END VERIFIKACE)
-======================================================================
-
-[KROK 1] Inicializace repozitáře a notifikační služby...
-  Data připravena: Uživatelé (Jana, Petr, manažer Martin), Vozidla (Octavia - platná STK, Superb - prošlá STK).
-
-[KROK 2] End-to-end průchod: Vytvoření standardní rezervace (Jana -> Octavia, 2 dny)...
-  [NOTIFIKACE -> jana.novakova@carside.cz]: Vaše rezervace vozidla Škoda Octavia Combi (č. 1) byla automaticky potvrzena.
-  -> Výsledek: Vytvořena rezervace ID=1, Stav=CONFIRMED, Uživatel=jana.novakova@carside.cz
-  [OK] Ověření úspěšné: Uloženo, potvrzeno, notifikace odeslána.
-
-[KROK 3] Business rule check: Pokus o překrývající se rezervaci stejného vozu...
-  [OK] Správně zachycena kolize: 'Vozidlo Škoda Octavia Combi je ve zvoleném termínu již rezervováno.'
-
-[KROK 4] Domain rule check: Pokus uživatele s pozastaveným oprávněním (Petr Dvořák)...
-  [OK] Správně zamítnuto: 'Uživatel Petr Dvořák má pozastavené oprávnění k řízení.'
-
-[KROK 5] Domain rule check: Pokus o rezervaci vozu s prošlou STK...
-  [OK] Správně zamítnuto: 'Vozidlo Škoda Superb má neplatnou STK a nelze jej rezervovat.'
-
-[KROK 6] Workflow schvalování: Dlouhá rezervace (> 3 dny) vyžaduje schválení správcem...
-  [NOTIFIKACE -> jana.novakova@carside.cz]: Rezervace č. 2 na vozidlo Škoda Octavia Combi přesahuje 3 dny a čeká na schválení správce.
-  -> Vytvořena rezervace ID=2, Stav=PENDING (čeká na manažera)
-  [NOTIFIKACE -> jana.novakova@carside.cz]: Vaše rezervace č. 2 byla správcem Martin Kučera schválena.
-  -> Po schválení manažerem Martinem: Stav=CONFIRMED
-
-[KROK 7] Storno rezervace: Uživatel zruší rezervaci -> uvolnění termínu...
-  [NOTIFIKACE -> jana.novakova@carside.cz]: Rezervace č. 1 byla zrušena. Vozidlo bylo uvolněno pro další zájemce.
-  -> Stav rezervace ID=1: CANCELLED
-  [OK] Termín vozu byl úspěšně uvolněn pro další zájemce.
-
-======================================================================
- VŠECHNY KONTROLY CP1 WALKING SKELETON ÚSPĚŠNĚ PROBĚHLY (PASS)
- Celkem odesláno notifikací: 4
-======================================================================
-```
-
----
-
-## 🖥️ Spuštění interaktivní webové aplikace
-
-Aplikace obsahuje plně funkční klientské rozhraní s kalendářem, interaktivním formulářem, schvalovací konzolí i správou vozového parku.
-
-### Spuštění lokálního serveru s databází:
-```bash
-node .\server\server.js
-python .\src\app.py
-```
-Skript automaticky spustí HTTP server a REST API s databází a otevře aplikaci v prohlížeči na adrese **`http://localhost:8000`**.
-
-### Interaktivní průchod aplikací:
-1. **Přihlášení:** V pravém horním rohu klikněte na *Přihlásit se* a využijte demo účet:
-   - **Zaměstnanec:** `jana.novakova@carside.cz` (heslo: `heslo`) – tvorba běžných rezervací, hlášení vad.
-   - **Správce flotily:** `martin.kucera@carside.cz` (heslo: `heslo`) – schvalování rezervací, správa STK a aut.
-   - **Administrátor:** `admin@carside.cz` (heslo: `heslo`) – správa uživatelů a řešení odvolání.
-2. **Vytvoření rezervace:** Vyberte termín výpůjčky a vozidlo z nabídky. Při volbě termínu delšího než 3 dny aplikace upozorní na nutnost schválení manažerem.
-3. **Ověření pravidel v reálném čase:** Systém v rozhraní vizuálně indikuje obsazenost v kalendáři, odpočítává zbývající čas výpůjčky a blokuje výběr aut s neplatnou STK.
-4. **Auditní log:** V dolní liště aplikace lze rozbalit živý protokol systémových událostí (*Systémový protokol*).
+Na konci se vypíše `VŠECHNY KONTROLY CP1 WALKING SKELETON ÚSPĚŠNĚ PROBĚHLY (PASS)`.
 
 ---
 
@@ -130,39 +125,46 @@ Skript automaticky spustí HTTP server a REST API s databází a otevře aplikac
 
 ```plaintext
 Car-side/
-├── README.md                           # Hlavní přehled projektu, CP1 walking skeleton a návod
-├── docs/                               # Strukturovaná projektová dokumentace
-│   ├── intent-and-change.md            # Project Frame, doména, pravidla a plánované změny
-│   ├── architecture-and-decisions.md   # Architektonický návrh, komponenty a ADR záznamy
-│   ├── evidence-and-evolution.md       # C01 Engineering Spike, definice CP1 a roadmapa
-│   └── future-pressure.txt             # Detailní rozbor budoucího tlaku (elektromobily)
-├── diagrams/                           # UML diagramy a jejich dokumentace
-│   ├── usecase-diagram/                # Případy užití (Use Case diagramy a dokumentace)
-│   ├── sekvencni/                      # Původní sekvenční diagramy (bez tříd)
-│   ├── architektura/                   # Architektura, MVC a deployment AR01–AR05 (puml, png, svg, pdf)
-│   ├── navrhove_vzory/                 # Návrhové vzory NV01–NV06 (puml, png, svg, pdf)
-│   ├── sekvencni_tridy/                # Sekvenční diagramy SD01–SD10 (puml, png, svg, pdf)
-│   ├── aktivitni/                      # Aktivitní diagramy schvalování, převzetí a správy
-│   ├── stavove/                        # Stavové diagramy STD01–STD03 (puml, png, svg, pdf)
-│   ├── tridni/                         # Původní pokus o diagram tříd
-│   └── tridni_diagramy/                # Třídní diagramy TD01–TD02 (puml, png, svg, pdf)
-├── src/                                # Zdrojový kód aplikace
-│   ├── walking_skeleton.py             # Spustitelný CP1 Walking Skeleton s automatizovanými testy
-│   ├── app.py                          # Spouštěcí server webové aplikace
-│   ├── app.js                          # Klientská doménová logika, kalendář a správa stavu
-│   ├── mock-data.js                    # Výchozí datová sada (uživatelé, auta, rezervace)
-│   ├── index.html                      # Uživatelské rozhraní aplikace
-│   └── style.css                       # Vizuální styly rozhraní
-└── Todo                                # Seznam úkolů pro navazující fáze
+├── README.md                     # Přehled projektu a návod ke spuštění
+├── Todo                          # Seznam úkolů pro další fáze
+├── docs/                         # Projektová dokumentace (doména, ADR, roadmapa, future pressure)
+├── diagrams/                     # UML diagramy (puml, png, svg, pdf) a jejich dokumentace
+│   ├── usecase-diagram/          # Případy užití
+│   ├── sekvencni_diagramy/       # Sekvenční diagramy SD01–SD10
+│   ├── tridni_diagramy/          # Třídní diagramy TD01–TD02
+│   ├── stavove/                  # Stavové diagramy STD01–STD03
+│   ├── aktivitni/                # Aktivitní diagramy
+│   ├── architektura/             # Architektura, MVC a nasazení AR01–AR05
+│   └── navrhove_vzory/           # Návrhové vzory NV01–NV06
+├── src/                          # Webová aplikace (klient)
+│   ├── index.html                # Uživatelské rozhraní
+│   ├── style.css                 # Vzhled
+│   ├── app.js                    # Obsluha formulářů a vykreslování
+│   ├── services.js               # Služby a pravidla systému
+│   ├── mock-data.js              # Výchozí demo data
+│   ├── app.py                    # Lokální HTTP server pro webovou aplikaci (port 8000)
+│   └── walking_skeleton.py       # CP1 Walking Skeleton
+├── server/                       # Backend
+│   ├── server.js                 # REST API + repozitáře (port 3000)
+│   └── package.json              # Závislosti (express, sqlite3, cors)
+└── database.sqlite               # Databáze SQLite (vytvoří a naplní ji server)
 ```
 
 ---
 
-## 🚀 Další plánovaný vývoj (Roadmap)
+## ⚠️ Známá omezení verze 1.0.0
+
+- Server slouží pro **načtení dat**; změny provedené v aplikaci (rezervace, schválení, vady, uživatelé) se ukládají do **LocalStorage prohlížeče**, ne do databáze.
+- Hesla jsou v demo datech uložena jako prostý text a přihlášení se ověřuje na straně klienta.
+
+---
+
+## 🚀 Roadmap
 
 - [x] **CP1:** Walking Skeleton – ověření doménových invariantů, překryvů a notifikací.
-- [x] **CP2:** Model rolí a autorizace (Employee / Manager / Admin).
-- [x] **CP3 / CP4:** Webové rozhraní, interaktivní kalendář obsazenosti (Timetable), evidence STK a vad.
-- [x] **CP5:** Přechod na trvalou SQL databázi (node.js), REST API
-- [ ] **CP5:** Autentizace tokeny.
-- [ ] **Budoucí rozšíření:** Integrace IoT telemetrie (GPS, odečet tachometru) a správa dobíjení elektromobilů dle *Future Pressure C*.
+- [x] **CP2:** Model rolí a autorizace (zaměstnanec / správce / administrátor).
+- [x] **CP3 / CP4:** Webové rozhraní, kalendář obsazenosti, evidence STK a vad, odvolání proti zákazu řízení.
+- [x] **CP5 (část 1):** REST API (Node.js + Express) nad databází SQLite – načítání dat.
+- [ ] **CP5 (část 2):** Ukládání všech změn přes REST API do databáze.
+- [ ] **CP5 (část 3):** Autentizace na serveru (tokeny) a šifrování hesel.
+- [ ] **Budoucí rozšíření:** IoT telemetrie (GPS, tachometr) a správa dobíjení elektromobilů dle *Future Pressure C*.
