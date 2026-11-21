@@ -127,46 +127,72 @@ db.serialize(() => {
     });
 });
 
+// --- REPOZITÁŘE (přístup k tabulkám databáze) ---
+
+// Promise obal nad db.all / db.run, aby šlo používat async/await
+const query = (sql, params = []) => new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows));
+});
+const execute = (sql, params = []) => new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) { err ? reject(err) : resolve(this.lastID); });
+});
+
+class VehicleRepository {
+    async findAll() {
+        const rows = await query("SELECT * FROM vehicles");
+        return rows.map(v => ({ ...v, defects: JSON.parse(v.defects || '[]') }));
+    }
+}
+
+class UserRepository {
+    async findAll() {
+        const rows = await query("SELECT * FROM users");
+        return rows.map(u => ({
+            ...u,
+            canDrive: Boolean(u.canDrive),
+            appeal: u.appeal ? JSON.parse(u.appeal) : null
+        }));
+    }
+}
+
+class ReservationRepository {
+    async findAll() {
+        return query("SELECT * FROM reservations");
+    }
+
+    async create({ vehicleId, employeeEmail, employeeName, start, end, status }) {
+        const id = await execute(
+            `INSERT INTO reservations (vehicleId, employeeEmail, employeeName, start, end, status) VALUES (?, ?, ?, ?, ?, ?)`,
+            [vehicleId, employeeEmail, employeeName, start, end, status]
+        );
+        return { id, status };
+    }
+}
+
+const vehicleRepository = new VehicleRepository();
+const userRepository = new UserRepository();
+const reservationRepository = new ReservationRepository();
+
 // --- REST API ENDPOINTY ---
 
+// Společné ošetření chyb: při chybě databáze vrátí 500
+const handle = action => async (req, res) => {
+    try {
+        res.json(await action(req));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
 // 1. Vozidla
-app.get('/api/vehicles', (req, res) => {
-    db.all("SELECT * FROM vehicles", [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        const formatted = rows.map(v => ({ ...v, defects: JSON.parse(v.defects || '[]') }));
-        res.json(formatted);
-    });
-});
+app.get('/api/vehicles', handle(() => vehicleRepository.findAll()));
 
 // 2. Uživatelé
-app.get('/api/users', (req, res) => {
-    db.all("SELECT * FROM users", [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        const formatted = rows.map(u => ({ 
-            ...u, 
-            canDrive: Boolean(u.canDrive), 
-            appeal: u.appeal ? JSON.parse(u.appeal) : null 
-        }));
-        res.json(formatted);
-    });
-});
+app.get('/api/users', handle(() => userRepository.findAll()));
 
 // 3. Rezervace
-app.get('/api/reservations', (req, res) => {
-    db.all("SELECT * FROM reservations", [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
-    });
-});
-
-app.post('/api/reservations', (req, res) => {
-    const { vehicleId, employeeEmail, employeeName, start, end, status } = req.body;
-    const query = `INSERT INTO reservations (vehicleId, employeeEmail, employeeName, start, end, status) VALUES (?, ?, ?, ?, ?, ?)`;
-    db.run(query, [vehicleId, employeeEmail, employeeName, start, end, status], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ id: this.lastID, status });
-    });
-});
+app.get('/api/reservations', handle(() => reservationRepository.findAll()));
+app.post('/api/reservations', handle(req => reservationRepository.create(req.body)));
 
 // Spuštění serveru
 const PORT = 3000;

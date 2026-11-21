@@ -1,11 +1,21 @@
 /* ============================================================
-   Car-side — Logic with Auth, Timetable & Vehicle/User Modals
+   Car-side — Uživatelské rozhraní (obsluha formulářů a vykreslování)
+   Pravidla systému jsou ve třídách v services.js.
    ============================================================ */
 
 const STORE_KEY = "carside_db_v3";
 const SESSION_KEY = "carside_session_user";
-const STANDARD_MAX_DAYS = 3;
 const MONTHS_CS = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
+
+/* ---------- Služby (třídy ze services.js) ---------- */
+const store = new LocalStore(STORE_KEY, INITIAL_DATABASE);
+const api = new ApiClient("http://localhost:3000/api");
+const auditLog = new AuditLog();
+const notificationService = new NotificationService();
+const authService = new AuthService(auditLog);
+const reservationService = new ReservationService(notificationService, auditLog);
+const fleetService = new FleetService(notificationService, auditLog);
+const userService = new UserService(notificationService, auditLog);
 
 let db = loadDb();
 let currentUser = loadSession();
@@ -15,33 +25,10 @@ let stkActiveFilter = "ALL";
 // Načtení všech dat z REST API serveru (vozidla, uživatelé, rezervace)
 async function loadDataFromApi() {
   try {
-    // 1. Načtení vozidel
-    const resVehicles = await fetch('http://localhost:3000/api/vehicles');
-    if (resVehicles.ok) {
-      const vehiclesData = await resVehicles.json();
-      if (vehiclesData && vehiclesData.length > 0) {
-        db.vehicles = vehiclesData;
-      }
-    }
-
-    // 2. Načtení uživatelů
-    const resUsers = await fetch('http://localhost:3000/api/users');
-    if (resUsers.ok) {
-      const usersData = await resUsers.json();
-      if (usersData && usersData.length > 0) {
-        db.users = usersData;
-      }
-    }
-
-    // 3. Načtení rezervací
-    const resReservations = await fetch('http://localhost:3000/api/reservations');
-    if (resReservations.ok) {
-      const reservationsData = await resReservations.json();
-      if (reservationsData && reservationsData.length > 0) {
-        db.reservations = reservationsData;
-      }
-    }
-
+    const data = await api.loadAll();
+    if (data.vehicles && data.vehicles.length > 0) db.vehicles = data.vehicles;
+    if (data.users && data.users.length > 0) db.users = data.users;
+    if (data.reservations && data.reservations.length > 0) db.reservations = data.reservations;
     console.log("Všechna data byla úspěšně stažena z databáze!");
   } catch (err) {
     console.warn("API server nedostupný, používám lokální data:", err);
@@ -49,15 +36,11 @@ async function loadDataFromApi() {
 }
 
 function loadDb() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {}
-  return JSON.parse(JSON.stringify(INITIAL_DATABASE));
+  return store.load();
 }
 
 function saveDb() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(db)); return true; } catch (e) { return false; }
+  return store.save(db);
 }
 
 function loadSession() {
@@ -76,9 +59,9 @@ function setSession(user) {
 }
 
 function resetDemo() {
-  localStorage.removeItem(STORE_KEY);
+  store.clear();
   localStorage.removeItem(SESSION_KEY);
-  db = JSON.parse(JSON.stringify(INITIAL_DATABASE));
+  db = store.createInitial();
   currentUser = null;
   saveDb();
   renderAll();
@@ -103,18 +86,14 @@ function handleLogin(ev) {
   const password = document.getElementById("lPassword").value;
   const msgEl = document.getElementById("loginMsg");
 
-  pushLog("Auth Service", `POST /auth/login (${email})`);
-  const user = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
-
-  if (!user || user.password !== password) {
-    pushLog("Auth Service", "401 Unauthorized — Neplatný email nebo heslo");
+  const user = authService.login(email, password);
+  if (!user) {
     msgEl.textContent = "Nesprávný e-mail nebo heslo.";
     msgEl.className = "formmsg show err";
     renderLog();
     return false;
   }
 
-  pushLog("Auth Service", `200 OK — Uživatel přihlášen (${user.name}, role: ${user.role})`);
   setSession(user);
   closeLoginModal();
   return false;
@@ -139,18 +118,13 @@ function handleResetPassword(ev) {
   const email = document.getElementById("rEmail").value.trim();
   const msgEl = document.getElementById("resetMsg");
 
-  pushLog("Auth Service", `POST /auth/reset-password (${email})`);
-  const user = db.users.find(u => u.email.toLowerCase() === email.toLowerCase());
-
-  if (!user) {
-    pushLog("Auth Service", "404 Not Found — E-mail nenalezen");
+  if (!authService.requestPasswordReset(email)) {
     msgEl.textContent = "E-mail nebyl v systému nalezen.";
     msgEl.className = "formmsg show err";
     renderLog();
     return false;
   }
 
-  pushLog("Auth Service", `200 OK — Odeslán e-mail s tokenem pro obnovu hesla na ${email}`);
   msgEl.textContent = "Instrukce pro obnovu hesla byly odeslány na váš e-mail.";
   msgEl.className = "formmsg show ok";
   renderLog();
@@ -418,7 +392,7 @@ function initDateInputs(force = false) {
 }
 
 /* ---------- Helpers ---------- */
-const vehicleById = id => db.vehicles.find(v => v.id === id);
+const vehicleById = id => fleetService.getVehicle(id);
 function fmt(dtStr) {
   const d = parseIsoLocal(dtStr);
   return (!d || isNaN(d)) ? dtStr : d.toLocaleString("cs-CZ", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -426,17 +400,10 @@ function fmt(dtStr) {
 const overlaps = (aStart, aEnd, bStart, bEnd) => aStart < bEnd && bStart < aEnd;
 
 function pushLog(actor, text) {
-  db.logSeq += 1;
-  db.log.push({ n: db.logSeq, actor, text });
-  if (db.log.length > 60) db.log = db.log.slice(-60);
+  auditLog.record(actor, text);
 }
 
-function pushNotif(who, text) {
-  db.notifications.unshift({ who, text, t: new Date().toISOString() });
-  db.notifications = db.notifications.slice(0, 12);
-}
-
-const statusLabel = s => s === "CONFIRMED" ? "Potvrzeno" : s === "PENDING" ? "Čeká na schválení" : "Zamítnuto";
+const statusLabel = s => s === "CONFIRMED" ? "Potvrzeno" : s === "PENDING" ? "Čeká na schválení" : s === "CANCELLED" ? "Zrušeno" : "Zamítnuto";
 const statusClass = s => s === "CONFIRMED" ? "confirmed" : s === "PENDING" ? "pending" : "rejected";
 const roleLabel = r => r === "admin" ? "Administrátor" : r === "manager" ? "Správce flotily" : "Zaměstnanec";
 
@@ -459,85 +426,23 @@ function submitReservation(ev) {
   const msgEl = document.getElementById("formMsg");
   msgEl.className = "formmsg";
 
-  if (currentUser.canDrive === false) {
-    pushLog("API → Zaměstnanec", "403 Forbidden — Uživatel má zákaz řízení");
-    msgEl.textContent = "Máte pozastavené oprávnění k řízení služebních vozidel. Rezervaci nelze vytvořit.";
-    msgEl.classList.add("show", "err");
-    return false;
-  }
-
   const vehicleId = Number(document.getElementById("fVehicle").value);
   const startVal = getInputValue("fStart"), endVal = getInputValue("fEnd");
+
+  let reservation;
+  try {
+    reservation = reservationService.create(currentUser, vehicleId, startVal, endVal);
+  } catch (err) {
+    msgEl.textContent = err.message;
+    msgEl.classList.add("show", "err");
+    return false;
+  }
+
   const vehicle = vehicleById(vehicleId);
-  const start = parseIsoLocal(startVal), end = parseIsoLocal(endVal);
-  const now = new Date();
-
-  pushLog("Zaměstnanec → API", `POST /reservations (${vehicle ? vehicle.name : vehicleId}, ${startVal}, ${endVal})`);
-
-  if (!vehicle || !start || !end || !(start < end)) {
-    msgEl.textContent = "Zkontrolujte prosím termín nebo zvolte dostupné vozidlo.";
-    msgEl.classList.add("show", "err");
-    return false;
-  }
-
-  const stkDiff = daysDiffFromNow(vehicle.stkDate);
-  if (stkDiff < 0) {
-    msgEl.textContent = `Vozidlo ${vehicle.name} má prošlou STK (${formatCsDate(new Date(vehicle.stkDate))}) a nelze jej rezervovat!`;
-    msgEl.classList.add("show", "err");
-    return false;
-  }
-
-  if (start < now) {
-    msgEl.textContent = "Nelze vytvořit rezervaci v minulosti. Zvolte prosím aktuální nebo budoucí termín.";
-    msgEl.classList.add("show", "err");
-    return false;
-  }
-
-  if ((end - start) / 60000 < 30) {
-    msgEl.textContent = "Minimální časový blok půjčení je 30 minut.";
-    msgEl.classList.add("show", "err");
-    return false;
-  }
-
-  const employeeClash = db.reservations.some(r =>
-    r.employeeEmail === currentUser.email &&
-    r.status !== "REJECTED" &&
-    overlaps(start, end, parseIsoLocal(r.start), parseIsoLocal(r.end))
-  );
-
-  if (employeeClash) {
-    pushLog("API → Zaměstnanec", "409 Conflict — Zaměstnanec již má rezervaci v daném čase");
-    msgEl.textContent = "V tomto časovém rozmezí již máte zarezervované jiné vozidlo. V jednom čase lze mít max 1 auto.";
-    msgEl.classList.add("show", "err");
-    return false;
-  }
-
-  const clash = db.reservations.some(r => r.vehicleId === vehicleId && r.status !== "REJECTED" && overlaps(start, end, parseIsoLocal(r.start), parseIsoLocal(r.end)));
-
-  if (clash) {
-    msgEl.textContent = `Vozidlo ${vehicle.name} je v tomto termínu již rezervováno. Zvolte jiný termín nebo vozidlo.`;
-    msgEl.classList.add("show", "err");
-    return false;
-  }
-
-  const days = (end - start) / 86400000;
-  const isStandard = days <= STANDARD_MAX_DAYS;
-  const status = isStandard ? "CONFIRMED" : "PENDING";
-
-  db.reservations.push({ id: db.nextResId++, vehicleId, employeeEmail: currentUser.email, employeeName: currentUser.name, start: startVal, end: endVal, status });
-
-  if (isStandard) {
-    pushNotif(currentUser.email, `Rezervace vozidla ${vehicle.name} byla automaticky potvrzena.`);
-    msgEl.textContent = `Hotovo — rezervace vozidla ${vehicle.name} byla automaticky potvrzena.`;
-    msgEl.classList.add("show", "ok");
-  } else {
-    db.users.filter(u => u.role === "manager").forEach(m => {
-      pushNotif(m.email, `Nová rezervace ke schválení: ${vehicle.name} (${currentUser.name}, ${Math.ceil(days)} dní).`);
-    });
-    pushNotif(currentUser.email, `Rezervace vozidla ${vehicle.name} přesahuje 3 dny a čeká na schválení správce.`);
-    msgEl.textContent = `Termín přesahuje ${STANDARD_MAX_DAYS} dny — rezervace čeká na schválení správce vozového parku.`;
-    msgEl.classList.add("show", "ok");
-  }
+  msgEl.textContent = reservation.status === ReservationStatus.CONFIRMED
+    ? `Hotovo — rezervace vozidla ${vehicle.name} byla automaticky potvrzena.`
+    : `Termín přesahuje ${STANDARD_MAX_DAYS} dny — rezervace čeká na schválení správce vozového parku.`;
+  msgEl.classList.add("show", "ok");
 
   saveDb();
   document.getElementById("resForm").reset();
@@ -547,15 +452,15 @@ function submitReservation(ev) {
 }
 
 function managerDecision(resId, approve, isCancel = false) {
-  const rec = db.reservations.find(r => r.id === resId);
-  if (!rec) return;
   if (isCancel && !confirm("Opravdu chcete zrušit tuto potvrzenou rezervaci? Zaměstnanec bude informován.")) return;
-  const vehicle = vehicleById(rec.vehicleId);
-  const action = approve ? "CONFIRM" : isCancel ? "CANCEL" : "REJECT";
-  pushLog("Správce → API", `PUT /reservations/${resId}/status (akce: ${action})`);
-  rec.status = approve ? "CONFIRMED" : "REJECTED";
-  const verb = approve ? "schválena" : isCancel ? "zrušena správcem" : "zamítnuta";
-  pushNotif(rec.employeeEmail, `Vaše rezervace vozidla ${vehicle ? vehicle.name : ""} (${fmt(rec.start)}) byla ${verb}.`);
+  try {
+    if (approve) reservationService.approve(resId);
+    else if (isCancel) reservationService.cancel(resId);
+    else reservationService.reject(resId);
+  } catch (err) {
+    alert(err.message);
+    return;
+  }
   saveDb(); renderAll();
 }
 
@@ -612,18 +517,7 @@ function saveVehicleForm(ev) {
   const mileage = Number(document.getElementById("mvMileage").value);
   const notes = document.getElementById("mvNotes").value.trim();
 
-  if (idVal) {
-    const v = vehicleById(Number(idVal));
-    if (v) {
-      v.name = name; v.plate = plate; v.type = type; v.location = location;
-      v.stkDate = stkDate; v.greenCardDate = greenCardDate; v.mileage = mileage; v.notes = notes;
-      pushLog("Správce", `Aktualizováno vozidlo ID ${v.id} (${v.name})`);
-    }
-  } else {
-    const newId = db.nextVehicleId++;
-    db.vehicles.push({ id: newId, name, plate, type, location, stkDate, greenCardDate, mileage, notes, defects: [] });
-    pushLog("Správce", `Vytvořeno nové vozidlo ID ${newId} (${name})`);
-  }
+  fleetService.saveVehicle(idVal ? Number(idVal) : null, { name, plate, type, location, stkDate, greenCardDate, mileage, notes });
 
   saveDb();
   closeVehicleModal();
@@ -633,9 +527,7 @@ function saveVehicleForm(ev) {
 
 function removeVehicle(id) {
   if (!confirm("Opravdu chcete odebrat toto vozidlo z flotily?")) return;
-  db.vehicles = db.vehicles.filter(v => v.id !== id);
-  db.reservations = db.reservations.filter(r => r.vehicleId !== id);
-  pushLog("Správce", `Odebráno vozidlo ID ${id}`);
+  fleetService.removeVehicle(id);
   saveDb(); renderAll();
 }
 
@@ -712,21 +604,11 @@ function saveUserForm(ev) {
   const role = document.getElementById("muRole").value;
   const canDrive = document.getElementById("muCanDrive").checked;
 
-  if (idVal) {
-    const u = db.users.find(x => x.id === Number(idVal));
-    if (u) {
-      u.code = code; u.firstName = firstName; u.lastName = lastName; u.name = fullName;
-      u.email = email; u.phone = phone; u.role = role; u.canDrive = canDrive;
-      pushLog("Admin", `Upraven profil uživatele ${u.name} (kód: ${code})`);
-    }
-  } else {
-    if (db.users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
-      alert("Uživatel s tímto e-mailem již existuje.");
-      return false;
-    }
-    const newId = db.nextUserId++;
-    db.users.push({ id: newId, code, firstName, lastName, name: fullName, email, phone, password: "heslo", role, status: "ACTIVE", canDrive, appeal: null });
-    pushLog("Admin", `Vytvořen nový profil uživatele ${fullName} (${role})`);
+  try {
+    userService.saveUser(idVal ? Number(idVal) : null, { code, firstName, lastName, name: fullName, email, phone, role, canDrive });
+  } catch (err) {
+    alert(err.message);
+    return false;
   }
 
   saveDb();
@@ -736,8 +618,7 @@ function saveUserForm(ev) {
 }
 
 function triggerPasswordReset(email) {
-  pushLog("Admin", `Reset hesla vyvolán pro ${email}`);
-  pushNotif(email, "Správce vám zaslal odkaz pro resetování hesla.");
+  userService.sendPasswordReset(email);
   alert(`Instrukce k resetu hesla byly zaslány na ${email}.`);
   saveDb(); renderAll();
 }
@@ -755,24 +636,9 @@ function submitDefectForm(ev) {
   ev.preventDefault();
   const vId = Number(document.getElementById("rdVehicle").value);
   const text = document.getElementById("rdText").value.trim();
-  const v = vehicleById(vId);
+  const reporterEmail = currentUser ? currentUser.email : "zamestnanec@carside.cz";
 
-  if (!v) return false;
-  if (!v.defects) v.defects = [];
-
-  v.defects.push({
-    id: db.nextDefectId++,
-    reporterEmail: currentUser ? currentUser.email : "zamestnanec@carside.cz",
-    text,
-    date: new Date().toISOString(),
-    status: "OPEN"
-  });
-
-  db.users.filter(u => u.role === "manager").forEach(m => {
-    pushNotif(m.email, `⚠️ Nahlášena nová vada u vozidla ${v.name} (${v.plate})`);
-  });
-
-  pushLog("Zaměstnanec", `Nahlášena vada u vozidla ${v.name}: ${text}`);
+  if (!fleetService.reportDefect(vId, reporterEmail, text)) return false;
   saveDb();
   closeReportDefectModal();
   alert("Hlášení o vadě bylo úspěšně odesláno správci flotily.");
@@ -781,20 +647,13 @@ function submitDefectForm(ev) {
 }
 
 function resolveDefect(vehicleId, defectId) {
-  const v = vehicleById(vehicleId);
-  if (!v || !v.defects) return;
-  const d = v.defects.find(x => x.id === defectId);
-  if (d) {
-    d.status = "RESOLVED";
-    pushLog("Správce", `Vada ID ${defectId} na vozidle ${v.name} označena jako vyřešená`);
+  if (fleetService.resolveDefect(vehicleId, defectId)) {
     saveDb(); renderAll();
   }
 }
 
 function openEditDefectModal(vehicleId, defectId) {
-  const v = vehicleById(vehicleId);
-  if (!v || !v.defects) return;
-  const d = v.defects.find(x => x.id === defectId);
+  const d = fleetService.findDefect(vehicleId, defectId);
   if (!d) return;
 
   document.getElementById("edVehicleId").value = vehicleId;
@@ -813,15 +672,7 @@ function saveDefectEdit(ev) {
   const text = document.getElementById("edText").value.trim();
   const status = document.getElementById("edStatus").value;
 
-  const v = vehicleById(vId);
-  if (v && v.defects) {
-    const d = v.defects.find(x => x.id === dId);
-    if (d) {
-      d.text = text;
-      d.status = status;
-      pushLog("Správce", `Upravena vada ID ${dId} u vozidla ${v.name}`);
-    }
-  }
+  fleetService.updateDefect(vId, dId, text, status);
 
   saveDb();
   closeEditDefectModal();
@@ -831,12 +682,8 @@ function saveDefectEdit(ev) {
 
 function deleteDefect(vehicleId, defectId) {
   if (!confirm("Opravdu chcete smazat tuto hlášenou vadu?")) return;
-  const v = vehicleById(vehicleId);
-  if (v && v.defects) {
-    v.defects = v.defects.filter(x => x.id !== defectId);
-    pushLog("Správce", `Smazána vada ID ${defectId} u vozidla ${v.name}`);
-    saveDb(); renderAll();
-  }
+  fleetService.deleteDefect(vehicleId, defectId);
+  saveDb(); renderAll();
 }
 
 /* ---------- Appeal Modal Logic & Admin Appeal Review ---------- */
@@ -918,20 +765,13 @@ async function submitAppealForm(ev) {
     }
   }
 
-  const previous = currentUser.appeal;
-  currentUser.appeal = { text, ...attachment, date: new Date().toISOString(), status: "PENDING" };
-
-  if (!saveDb()) {
-    currentUser.appeal = previous;
-    showErr("Odvolání se nepodařilo uložit — úložiště prohlížeče je plné. Zkuste menší přílohu.");
+  try {
+    userService.fileAppeal(currentUser, { text, ...attachment }, saveDb);
+  } catch (err) {
+    showErr(err.message);
     return false;
   }
 
-  db.users.filter(u => u.role === "admin").forEach(a => {
-    pushNotif(a.email, `📩 Zaměstnanec ${currentUser.name} podal odvolání k zákazu řízení.`);
-  });
-
-  pushLog("Zaměstnanec", `Podáno odvolání k zákazu řízení (${currentUser.name})${attachment.file ? `, příloha: ${attachment.file}` : ""}`);
   saveDb();
   document.getElementById("apFile").value = "";
   closeAppealModal();
@@ -1000,14 +840,7 @@ function openAppealDetailModal(userId) {
 function closeAppealDetailModal() { revokeAppealPreview(); toggleModal("appealDetailModal", false); }
 
 function decideAppeal(userId, approve) {
-  const u = db.users.find(x => x.id === userId);
-  if (!u || !u.appeal) return;
-
-  u.canDrive = approve;
-  u.appeal.status = approve ? "APPROVED" : "REJECTED";
-
-  pushNotif(u.email, `Vaše odvolání k zákazu řízení bylo administrátorem ${approve ? "SCHVÁLENO (oprávnění k řízení obnoveno)" : "ZAMÍTNUTO"}.`);
-  pushLog("Admin", `Odvolání uživatele ${u.name} bylo ${approve ? "SCHVÁLENO" : "ZAMÍTNUTO"}`);
+  if (!userService.decideAppeal(userId, approve)) return;
 
   saveDb();
   closeAppealDetailModal();
@@ -1084,7 +917,7 @@ function computeFleetStatuses() {
   const list = db.vehicles.map(v => {
     const stkDiff = daysDiffFromNow(v.stkDate);
     const res = db.reservations
-      .filter(r => r.vehicleId === v.id && r.status !== "REJECTED")
+      .filter(r => r.vehicleId === v.id && reservationService.isBlocking(r))
       .map(r => ({ s: parseIsoLocal(r.start), e: parseIsoLocal(r.end) }))
       .filter(x => x.e > now)
       .sort((a, b) => a.s - b.s);
@@ -1219,7 +1052,7 @@ function buildOverviewHtml(days) {
 
   const rows = db.vehicles.map(v => {
     const stkEnd = addDays(parseDateOnly(v.stkDate), 1);
-    const vRes = db.reservations.filter(r => r.vehicleId === v.id && r.status !== "REJECTED");
+    const vRes = db.reservations.filter(r => r.vehicleId === v.id && reservationService.isBlocking(r));
 
     const cells = days.map(d => {
       const ds = startOfDay(d), de = addDays(ds, 1);
@@ -1251,7 +1084,7 @@ function buildCalendarHtml(days) {
   const H = TT_HOUR_H, now = new Date();
   const canBook = canBookFromCalendar();
   const stkEnd = addDays(parseDateOnly(v.stkDate), 1);   // od tohoto okamžiku je vozidlo zablokováno
-  const vRes = db.reservations.filter(r => r.vehicleId === v.id && r.status !== "REJECTED");
+  const vRes = db.reservations.filter(r => r.vehicleId === v.id && reservationService.isBlocking(r));
 
   // termín právě vybraný ve formuláři (zobrazí se jako přerušovaný blok)
   let sel = null;
@@ -1438,7 +1271,7 @@ function applyCalendarSelection(dayStart, lo, hi) {
 
   document.getElementById("formMsg").className = "formmsg";
 
-  const clash = db.reservations.some(r => r.vehicleId === v.id && r.status !== "REJECTED" && overlaps(start, end, parseIsoLocal(r.start), parseIsoLocal(r.end)));
+  const clash = reservationService.hasVehicleClash(v.id, start, end);
   if (clash) {
     renderTimetable();
     ttNotice("Vybraný termín se kryje s jinou rezervací tohoto vozidla. Zvolte volné místo v kalendáři.", "err");
@@ -1667,7 +1500,7 @@ function renderNotifs() {
   const el = document.getElementById("notifList");
   if (!el) return;
   if (!currentUser) { el.innerHTML = `<div class="empty-note">Pro zobrazení notifikací se přihlaste.</div>`; return; }
-  const relevant = db.notifications.filter(n => n.who === currentUser.email);
+  const relevant = notificationService.forUser(currentUser.email);
   el.innerHTML = relevant.map(n => `<div class="notif"><b>Systém:</b> ${n.text}<time>${fmt(n.t)}</time></div>`).join("") || `<div class="empty-note">Zatím žádná oznámení.</div>`;
 }
 
@@ -1682,7 +1515,7 @@ function renderVehicleSelect() {
   sel.innerHTML = db.vehicles.map(v => {
     const stkDiff = daysDiffFromNow(v.stkDate);
     const isStkExpired = stkDiff < 0;
-    const isClashed = (start && end && start < end) && db.reservations.some(r => r.vehicleId === v.id && (r.status === "CONFIRMED" || r.status === "PENDING") && overlaps(start, end, parseIsoLocal(r.start), parseIsoLocal(r.end)));
+    const isClashed = (start && end && start < end) && reservationService.hasVehicleClash(v.id, start, end);
 
     const disabled = isStkExpired || isClashed;
     const statusText = isStkExpired ? " ❌ (Prošlá STK — Nelze rezervovat)" : isClashed ? " ❌ (Obsazeno v tomto termínu)" : " ✅ (Dostupné)";
@@ -1760,7 +1593,7 @@ function renderReservationsTable() {
   const confirmed = items.filter(x => x.r.status === "CONFIRMED");
   const upcoming = confirmed.filter(x => x.e > now).sort((a, b) => a.s - b.s);
   const finished = confirmed.filter(x => x.e <= now).sort((a, b) => b.s - a.s);
-  const rejected = items.filter(x => x.r.status === "REJECTED").sort((a, b) => b.s - a.s);
+  const rejected = items.filter(x => x.r.status === "REJECTED" || x.r.status === "CANCELLED").sort((a, b) => b.s - a.s);
 
   const cells = x => {
     const v = vehicleById(x.r.vehicleId);
